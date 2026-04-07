@@ -1,29 +1,50 @@
 {
   "expo": {
     "name": "MediTrack",
-    "slug": "MediTrack",
-    "version": "1.0.0",
+    "slug": "meditrack",
+    "owner": "hardik_khanduja",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "supportsTablet": true
+      "backgroundColor": "#0d0d0d"
     },
     "android": {
+      "package": "com.hardikkhanduja.meditrack",
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0d0d0d"
       },
-      "edgeToEdgeEnabled": true
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "WAKE_LOCK",
+        "USE_EXACT_ALARM",
+        "SCHEDULE_EXACT_ALARM",
+        "POST_NOTIFICATIONS"
+      ]
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#6c63ff",
+          "sounds": [],
+          "androidMode": "default",
+          "androidCollapsedTitle": "MediTrack Alerts"
+        }
+      ],
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "78c65859-56e1-42df-8778-183e972365d5"
+      }
     }
   }
 }
