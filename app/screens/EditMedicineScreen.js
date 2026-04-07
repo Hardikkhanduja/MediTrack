@@ -7,7 +7,7 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { useState } from "react";
 import { updateMedicine } from "../data/storage";
 import { scheduleMedicineAlerts } from "../data/notifications";
@@ -67,7 +67,9 @@ export default function EditMedicineScreen({ navigation, route }) {
       <Text style={styles.pageSubtitle}>Update the details below</Text>
 
       <View style={styles.formCard}>
-        <Text style={styles.label}>💊 Medicine Name</Text>
+        <Text style={styles.label}>
+          <FontAwesome5 name="pills" size={12} color="#8888aa" /> Medicine Name
+        </Text>
         <TextInput
           style={styles.input}
           placeholderTextColor="#555570"
@@ -77,7 +79,10 @@ export default function EditMedicineScreen({ navigation, route }) {
 
         <View style={styles.divider} />
 
-        <Text style={styles.label}>📅 Expiry Date</Text>
+        <Text style={styles.label}>
+          <Ionicons name="calendar-outline" size={13} color="#8888aa" /> Expiry
+          Date
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="YYYY-MM-DD"
@@ -88,7 +93,10 @@ export default function EditMedicineScreen({ navigation, route }) {
 
         <View style={styles.divider} />
 
-        <Text style={styles.label}>🔢 Quantity</Text>
+        <Text style={styles.label}>
+          <Ionicons name="calculator-outline" size={13} color="#8888aa" />{" "}
+          Quantity
+        </Text>
         <TextInput
           style={styles.input}
           placeholderTextColor="#555570"
@@ -104,16 +112,11 @@ export default function EditMedicineScreen({ navigation, route }) {
         disabled={loading}
         activeOpacity={0.85}
       >
-        <LinearGradient
-          colors={["#8b80ff", "#5c54d8"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.saveButton}
-        >
+        <View style={styles.saveButton}>
           <Text style={styles.saveButtonText}>
             {loading ? "Saving..." : "Update Medicine"}
           </Text>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -170,18 +173,19 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 40,
     borderRadius: 16,
-    shadowColor: "#8b80ff",
-    shadowOpacity: 0.4,
+    shadowColor: "#000000",
+    shadowOpacity: 0.6,
     shadowRadius: 12,
     elevation: 8,
   },
   saveButton: {
+    backgroundColor: "#ffffff",
     borderRadius: 16,
     padding: 18,
     alignItems: "center",
   },
   saveButtonText: {
-    color: "#fff",
+    color: "#000000",
     fontSize: 16,
     fontFamily: "Inter_800ExtraBold",
     letterSpacing: 0.5,

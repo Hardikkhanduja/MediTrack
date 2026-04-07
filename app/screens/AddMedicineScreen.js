@@ -8,7 +8,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { useState } from "react";
 import { addMedicine } from "../data/storage";
 import {
@@ -104,7 +104,9 @@ export default function AddMedicineScreen({ navigation }) {
       </Text>
 
       <View style={styles.formCard}>
-        <Text style={styles.label}>💊 Medicine Name</Text>
+        <Text style={styles.label}>
+          <FontAwesome5 name="pills" size={12} color="#8888aa" /> Medicine Name
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="e.g. Dolo 650, Crocin"
@@ -115,7 +117,10 @@ export default function AddMedicineScreen({ navigation }) {
 
         <View style={styles.divider} />
 
-        <Text style={styles.label}>📅 Expiry Date</Text>
+        <Text style={styles.label}>
+          <Ionicons name="calendar-outline" size={13} color="#8888aa" /> Expiry
+          Date
+        </Text>
         <View style={styles.expiryRow}>
           <TextInput
             style={[styles.input, { flex: 1, marginRight: 10 }]}
@@ -129,24 +134,24 @@ export default function AddMedicineScreen({ navigation }) {
             onPress={handleScan}
             disabled={scanning}
           >
-            <LinearGradient
-              colors={["#8b80ff", "#5c54d8"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.scanBtn}
-            >
+            <View style={styles.scanBtn}>
               {scanning ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Text style={styles.scanBtnText}>📷 Scan</Text>
+                <Text style={styles.scanBtnText}>
+                  <Ionicons name="camera-outline" size={16} color="#fff" /> Scan
+                </Text>
               )}
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
         </View>
 
         <View style={styles.divider} />
 
-        <Text style={styles.label}>🔢 Quantity</Text>
+        <Text style={styles.label}>
+          <Ionicons name="calculator-outline" size={13} color="#8888aa" />{" "}
+          Quantity
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="e.g. 10"
@@ -160,8 +165,8 @@ export default function AddMedicineScreen({ navigation }) {
       {/* Scan tip */}
       <View style={styles.tipBox}>
         <Text style={styles.tipText}>
-          📷 Tip: Tap "Scan" to auto-detect expiry date from medicine strip
-          photo
+          <Ionicons name="camera-outline" size={14} color="#8888aa" /> Tip: Tap
+          "Scan" to auto-detect expiry date from medicine strip photo
         </Text>
       </View>
 
@@ -171,16 +176,11 @@ export default function AddMedicineScreen({ navigation }) {
         disabled={loading}
         activeOpacity={0.85}
       >
-        <LinearGradient
-          colors={["#8b80ff", "#5c54d8"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.saveButton}
-        >
+        <View style={styles.saveButton}>
           <Text style={styles.saveButtonText}>
             {loading ? "Saving..." : "Save Medicine"}
           </Text>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -238,6 +238,7 @@ const styles = StyleSheet.create({
     minWidth: 80,
   },
   scanBtn: {
+    backgroundColor: "#2a2a38",
     paddingHorizontal: 14,
     paddingVertical: 14,
     alignItems: "center",
@@ -259,7 +260,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 16,
     borderLeftWidth: 3,
-    borderLeftColor: "#6c63ff",
+    borderLeftColor: "#444455",
     borderWidth: 1,
     borderColor: "#222222",
   },
@@ -273,18 +274,19 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 40,
     borderRadius: 16,
-    shadowColor: "#8b80ff",
-    shadowOpacity: 0.4,
+    shadowColor: "#000000",
+    shadowOpacity: 0.6,
     shadowRadius: 12,
     elevation: 8,
   },
   saveButton: {
+    backgroundColor: "#ffffff",
     borderRadius: 16,
     padding: 18,
     alignItems: "center",
   },
   saveButtonText: {
-    color: "#fff",
+    color: "#000000",
     fontSize: 16,
     fontFamily: "Inter_800ExtraBold",
     letterSpacing: 0.5,

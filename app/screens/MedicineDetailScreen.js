@@ -7,7 +7,7 @@ import {
   Platform,
   Modal,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { useState, useEffect } from "react";
 import * as Notifications from "expo-notifications";
 import * as Haptics from "expo-haptics";
@@ -21,8 +21,8 @@ function getStatus(expiryDate) {
   if (diffDays < 0)
     return { label: "Expired", color: "#ff4757", days: diffDays };
   if (diffDays <= 30)
-    return { label: "Expiring Soon", color: "#ffa502", days: diffDays };
-  return { label: "Safe", color: "#2ed573", days: diffDays };
+    return { label: "Expiring Soon", color: "#f39c12", days: diffDays };
+  return { label: "Safe", color: "#8888aa", days: diffDays };
 }
 
 function formatTime(date) {
@@ -46,7 +46,8 @@ export default function MedicineDetailScreen({ route, navigation }) {
     visible: false,
     title: "",
     message: "",
-    icon: "✅",
+    icon: "checkmark-circle",
+    iconColor: "#2ed573",
     isConfirm: false,
     onConfirm: null,
     confirmText: "Yes",
@@ -56,16 +57,31 @@ export default function MedicineDetailScreen({ route, navigation }) {
     setModalConfig((prev) => ({ ...prev, visible: false }));
   }
 
-  function showSuccessModal(title, message, icon = "✅") {
-    setModalConfig({ visible: true, title, message, icon, isConfirm: false });
-  }
-
-  function showConfirmModal(title, message, onConfirm, icon = "⚠️", confirmText = "Delete") {
+  function showSuccessModal(title, message, iconColor = "#8888aa") {
     setModalConfig({
       visible: true,
       title,
       message,
       icon,
+      iconColor,
+      isConfirm: false,
+    });
+  }
+
+  function showConfirmModal(
+    title,
+    message,
+    onConfirm,
+    icon = "warning-outline",
+    iconColor = "#ff4757",
+    confirmText = "Delete",
+  ) {
+    setModalConfig({
+      visible: true,
+      title,
+      message,
+      icon,
+      iconColor,
       isConfirm: true,
       onConfirm: async () => {
         closeCustomModal();
@@ -128,7 +144,8 @@ export default function MedicineDetailScreen({ route, navigation }) {
         showSuccessModal(
           "Permission Denied",
           "You must enable notifications to schedule reminders.",
-          "🚫"
+          "ban",
+          "#ff4757",
         );
         return;
       }
@@ -197,7 +214,9 @@ export default function MedicineDetailScreen({ route, navigation }) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       showSuccessModal(
         "Reminder Set!",
-        `You'll be reminded to take ${medicine.name} every day at ${label}`
+        `You'll be reminded to take ${medicine.name} every day at ${label}`,
+        "checkmark-circle",
+        "#8888aa",
       );
     }
   }
@@ -219,8 +238,9 @@ export default function MedicineDetailScreen({ route, navigation }) {
           Haptics.NotificationFeedbackType.Warning,
         );
       },
-      "🗑️",
-      "Delete"
+      "trash-outline",
+      "#ff4757",
+      "Delete",
     );
   }
 
@@ -239,138 +259,149 @@ export default function MedicineDetailScreen({ route, navigation }) {
         }
         await saveReminders([]);
       },
-      "🧹",
-      "Clear All"
+      "trash-outline",
+      "#ff4757",
+      "Clear All",
     );
   }
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-      {/* Medicine Info Card */}
-      <View style={[styles.infoCard, { borderLeftColor: status.color }]}>
-        <View style={styles.infoTop}>
-          <Text style={styles.medicineName}>{medicine.name}</Text>
-          <View style={[styles.statusPill, { borderColor: status.color }]}>
-            <Text style={[styles.statusPillText, { color: status.color }]}>
-              {status.label}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.infoRow}>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>EXPIRY DATE</Text>
-            <Text style={styles.infoValue}>
-              {new Date(medicine.expiry).toLocaleDateString("en-IN", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}
-            </Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>QUANTITY</Text>
-            <Text style={styles.infoValue}>{medicine.quantity} units</Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Text style={styles.infoLabel}>STATUS</Text>
-            <Text style={[styles.infoValue, { color: status.color }]}>
-              {status.days < 0
-                ? `${Math.abs(status.days)}d ago`
-                : `${status.days}d left`}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Reminders Section */}
-      <View style={styles.sectionHeader}>
-        <View>
-          <Text style={styles.sectionTitle}>DAILY REMINDERS</Text>
-          <Text style={styles.sectionSubtitle}>
-            {reminders.length === 0
-              ? "No reminders set yet"
-              : `${reminders.length} reminder${reminders.length > 1 ? "s" : ""} active`}
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={styles.addReminderBtnWrapper}
-          onPress={openAddReminder}
-        >
-          <LinearGradient
-            colors={["#8b80ff", "#5c54d8"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.addReminderBtn}
-          >
-            <Text style={styles.addReminderBtnText}>＋ Add</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-
-      {/* Empty State */}
-      {reminders.length === 0 && (
-        <View style={styles.emptyReminders}>
-          <Text style={styles.emptyReminderIcon}>⏰</Text>
-          <Text style={styles.emptyReminderText}>No reminders yet</Text>
-          <Text style={styles.emptyReminderSub}>
-            Tap "+ Add" to set a daily reminder
-          </Text>
-        </View>
-      )}
-
-      {/* Reminder List */}
-      {reminders.map((reminder) => (
-        <View key={reminder.id} style={styles.reminderCard}>
-          <Text style={styles.reminderIcon}>⏰</Text>
-          <View style={styles.reminderInfo}>
-            <Text style={styles.reminderTime}>{reminder.label}</Text>
-            <Text style={styles.reminderSub}>Every day</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.editReminderBtn}
-            onPress={() => openEditReminder(reminder)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.editReminderText}>✏️</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.deleteReminderBtn}
-            onPress={() => deleteReminder(reminder)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.deleteReminderText}>🗑️</Text>
-          </TouchableOpacity>
-        </View>
-      ))}
-
-      {/* Clear All */}
-      {reminders.length > 0 && (
-        <TouchableOpacity style={styles.clearBtn} onPress={clearAllReminders}>
-          <Text style={styles.clearBtnText}>Clear All Reminders</Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Edit Medicine Button */}
-      <TouchableOpacity
-        style={styles.editButton}
-        onPress={() => navigation.navigate("EditMedicine", { medicine })}
-        activeOpacity={0.85}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
       >
-        <Text style={styles.editButtonText}>✏️ Edit Medicine</Text>
-      </TouchableOpacity>
+        {/* Medicine Info Card */}
+        <View style={styles.infoCard}>
+          <View style={styles.infoTop}>
+            <Text style={styles.medicineName}>{medicine.name}</Text>
+            <View style={[styles.statusPill, { borderColor: status.color }]}>
+              <Text style={[styles.statusPillText, { color: status.color }]}>
+                {status.label}
+              </Text>
+            </View>
+          </View>
 
-      {/* Time Picker */}
-      {showPicker && (
-        <DateTimePicker
-          value={pickerTime}
-          mode="time"
-          is24Hour={false}
-          display={Platform.OS === "android" ? "clock" : "spinner"}
-          onChange={handleTimeSelected}
-        />
-      )}
+          <View style={styles.infoRow}>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>EXPIRY DATE</Text>
+              <Text style={styles.infoValue}>
+                {new Date(medicine.expiry).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>QUANTITY</Text>
+              <Text style={styles.infoValue}>{medicine.quantity} units</Text>
+            </View>
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>STATUS</Text>
+              <Text style={[styles.infoValue, { color: status.color }]}>
+                {status.days < 0
+                  ? `${Math.abs(status.days)}d ago`
+                  : `${status.days}d left`}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Reminders Section */}
+        <View style={styles.sectionHeader}>
+          <View>
+            <Text style={styles.sectionTitle}>DAILY REMINDERS</Text>
+            <Text style={styles.sectionSubtitle}>
+              {reminders.length === 0
+                ? "No reminders set yet"
+                : `${reminders.length} reminder${reminders.length > 1 ? "s" : ""} active`}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.addReminderBtnWrapper}
+            onPress={openAddReminder}
+          >
+            <View style={styles.addReminderBtn}>
+              <Text style={styles.addReminderBtnText}>＋ Add</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Empty State */}
+        {reminders.length === 0 && (
+          <View style={styles.emptyReminders}>
+            <Ionicons
+              name="alarm-outline"
+              size={48}
+              color="#2a2a38"
+              style={{ marginBottom: 10 }}
+            />
+            <Text style={styles.emptyReminderText}>No reminders yet</Text>
+            <Text style={styles.emptyReminderSub}>
+              Tap "+ Add" to set a daily reminder
+            </Text>
+          </View>
+        )}
+
+        {/* Reminder List */}
+        {reminders.map((reminder) => (
+          <View key={reminder.id} style={styles.reminderCard}>
+            <Ionicons
+              name="alarm-outline"
+              size={24}
+              color="#8888aa"
+              style={{ marginRight: 12 }}
+            />
+            <View style={styles.reminderInfo}>
+              <Text style={styles.reminderTime}>{reminder.label}</Text>
+              <Text style={styles.reminderSub}>Every day</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.editReminderBtn}
+              onPress={() => openEditReminder(reminder)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="pencil" size={20} color="#8888aa" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteReminderBtn}
+              onPress={() => deleteReminder(reminder)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="trash-outline" size={20} color="#ff4757" />
+            </TouchableOpacity>
+          </View>
+        ))}
+
+        {/* Clear All */}
+        {reminders.length > 0 && (
+          <TouchableOpacity style={styles.clearBtn} onPress={clearAllReminders}>
+            <Text style={styles.clearBtnText}>Clear All Reminders</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Edit Medicine Button */}
+        <TouchableOpacity
+          style={styles.editButton}
+          onPress={() => navigation.navigate("EditMedicine", { medicine })}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.editButtonText}>
+            <Ionicons name="pencil" size={14} color="#ffffff" /> Edit Medicine
+          </Text>
+        </TouchableOpacity>
+
+        {/* Time Picker */}
+        {showPicker && (
+          <DateTimePicker
+            value={pickerTime}
+            mode="time"
+            is24Hour={false}
+            display={Platform.OS === "android" ? "clock" : "spinner"}
+            onChange={handleTimeSelected}
+          />
+        )}
       </ScrollView>
 
       {/* Custom Modal */}
@@ -382,12 +413,21 @@ export default function MedicineDetailScreen({ route, navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <View style={styles.modalIconContainer}>
-              <Text style={styles.modalIcon}>{modalConfig.icon}</Text>
+            <View
+              style={[
+                styles.modalIconContainer,
+                { backgroundColor: modalConfig.iconColor + "20" },
+              ]}
+            >
+              <Ionicons
+                name={modalConfig.icon}
+                size={32}
+                color={modalConfig.iconColor}
+              />
             </View>
             <Text style={styles.modalTitle}>{modalConfig.title}</Text>
             <Text style={styles.modalText}>{modalConfig.message}</Text>
-            
+
             {modalConfig.isConfirm ? (
               <View style={styles.modalButtons}>
                 <TouchableOpacity
@@ -402,7 +442,9 @@ export default function MedicineDetailScreen({ route, navigation }) {
                   onPress={modalConfig.onConfirm}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.modalDeleteBtnText}>{modalConfig.confirmText}</Text>
+                  <Text style={styles.modalDeleteBtnText}>
+                    {modalConfig.confirmText}
+                  </Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -433,7 +475,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 28,
-    borderLeftWidth: 4,
     borderWidth: 1,
     borderColor: "#222222",
   },
@@ -504,11 +545,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   addReminderBtn: {
+    backgroundColor: "#ffffff",
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
   addReminderBtnText: {
-    color: "#fff",
+    color: "#000000",
     fontSize: 13,
     fontFamily: "Inter_800ExtraBold",
   },
@@ -544,7 +586,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#6c63ff",
+    borderColor: "#222222",
   },
   reminderIcon: {
     fontSize: 22,
@@ -686,10 +728,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
-    backgroundColor: "#6c63ff",
+    backgroundColor: "#ffffff",
   },
   modalOkBtnText: {
-    color: "#ffffff",
+    color: "#000000",
     fontSize: 15,
     fontFamily: "Inter_800ExtraBold",
   },

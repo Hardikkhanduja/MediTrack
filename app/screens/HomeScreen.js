@@ -10,7 +10,7 @@ import {
   Modal,
   LayoutAnimation,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { useState, useCallback } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { getMedicines, deleteMedicine } from "../data/storage";
@@ -24,8 +24,8 @@ function getStatus(expiryDate) {
   if (diffDays < 0)
     return { label: "Expired", color: "#ff4757", days: diffDays };
   if (diffDays <= 30)
-    return { label: "Expiring Soon", color: "#ffa502", days: diffDays };
-  return { label: "Safe", color: "#2ed573", days: diffDays };
+    return { label: "Expiring Soon", color: "#f39c12", days: diffDays };
+  return { label: "Safe", color: "#8888aa", days: diffDays };
 }
 
 function getFormattedDate() {
@@ -133,7 +133,7 @@ export default function HomeScreen({ navigation }) {
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
-          <Text style={[styles.summaryCount, { color: "#2ed573" }]}>
+          <Text style={[styles.summaryCount, { color: "#8888aa" }]}>
             {safe}
           </Text>
           <Text style={styles.summaryLabel}>Safe</Text>
@@ -142,7 +142,12 @@ export default function HomeScreen({ navigation }) {
 
       {/* Search Bar */}
       <View style={styles.searchBar}>
-        <Text style={styles.searchIcon}>🔍</Text>
+        <Ionicons
+          name="search"
+          size={16}
+          color="#555566"
+          style={{ marginRight: 8 }}
+        />
         <TextInput
           style={styles.searchInput}
           placeholder="Search medicines..."
@@ -168,7 +173,12 @@ export default function HomeScreen({ navigation }) {
       {/* Empty State */}
       {medicines.length === 0 && (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>💊</Text>
+          <FontAwesome5
+            name="pills"
+            size={48}
+            color="#2a2a38"
+            style={{ marginBottom: 14 }}
+          />
           <Text style={styles.emptyText}>Nothing here yet</Text>
           <Text style={styles.emptySubText}>Add your first medicine below</Text>
         </View>
@@ -177,7 +187,12 @@ export default function HomeScreen({ navigation }) {
       {/* No search results */}
       {medicines.length > 0 && filtered.length === 0 && (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>🔍</Text>
+          <Ionicons
+            name="search"
+            size={48}
+            color="#2a2a38"
+            style={{ marginBottom: 14 }}
+          />
           <Text style={styles.emptyText}>No results found</Text>
           <Text style={styles.emptySubText}>Try a different medicine name</Text>
         </View>
@@ -199,9 +214,6 @@ export default function HomeScreen({ navigation }) {
               }
               activeOpacity={0.7}
             >
-              <View
-                style={[styles.accentLine, { backgroundColor: status.color }]}
-              />
               <View style={styles.medicineContent}>
                 <View style={styles.medicineTop}>
                   <Text style={styles.medicineName}>{item.name}</Text>
@@ -240,14 +252,14 @@ export default function HomeScreen({ navigation }) {
                   }
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={styles.editIcon}>✏️</Text>
+                  <Ionicons name="pencil" size={18} color="#8888aa" />
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.deleteBtn}
                   onPress={() => handleDeletePress(item)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={styles.deleteIcon}>🗑️</Text>
+                  <Ionicons name="trash-outline" size={18} color="#ff4757" />
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>
@@ -261,14 +273,9 @@ export default function HomeScreen({ navigation }) {
         onPress={() => navigation.navigate("AddMedicine")}
         activeOpacity={0.85}
       >
-        <LinearGradient
-          colors={["#8b80ff", "#5c54d8"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.addButton}
-        >
+        <View style={styles.addButton}>
           <Text style={styles.addButtonText}>＋ Add Medicine</Text>
-        </LinearGradient>
+        </View>
       </TouchableOpacity>
 
       {/* Custom Delete Confirmation Modal */}
@@ -281,7 +288,7 @@ export default function HomeScreen({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalIconContainer}>
-              <Text style={styles.modalIcon}>🗑️</Text>
+              <Ionicons name="trash-outline" size={28} color="#ff4757" />
             </View>
             <Text style={styles.modalTitle}>Delete Medicine?</Text>
             <Text style={styles.modalText}>
@@ -437,10 +444,6 @@ const styles = StyleSheet.create({
     borderColor: "#222222",
     overflow: "hidden",
   },
-  accentLine: {
-    width: 3,
-    alignSelf: "stretch",
-  },
   medicineContent: {
     flex: 1,
     padding: 14,
@@ -501,18 +504,19 @@ const styles = StyleSheet.create({
     bottom: 24,
     left: 16,
     right: 16,
-    shadowColor: "#8b80ff",
-    shadowOpacity: 0.45,
+    shadowColor: "#000000",
+    shadowOpacity: 0.6,
     shadowRadius: 16,
     elevation: 8,
   },
   addButton: {
+    backgroundColor: "#ffffff",
     borderRadius: 16,
     padding: 18,
     alignItems: "center",
   },
   addButtonText: {
-    color: "#fff",
+    color: "#000000",
     fontSize: 16,
     fontFamily: "Inter_800ExtraBold",
     letterSpacing: 0.5,

@@ -9,7 +9,7 @@
 
 - **AI-Powered Vision Scanning:** Skip the typing. Snap a picture of your medicine's blister pack, and Google's flagship **Gemini 2.5 Flash Vision API** instantly parses the drug name, exact expiry date, and remaining pill quantity directly from the medicine strip or packaging.
 - **Intelligent Reminders:** Highly reliable, locally-scheduled background notifications ensure you never miss a daily dose. Automated timeline alerts warn you exactly when your stash is about to expire.
-- **Premium UX Design:** A fully customized dark-mode interface built to feel like top-tier tech. Features deep dual-tone gradients, custom `Inter` typography, haptic engine feedback, and fluid layout animations that smoothly slide lists as items are modified.
+- **Minimalist Noir Aesthetic:** A sleek, fully customized monochrome deep-dark interface built to feel like high-end tier-1 tech. Features pristine high-contrast layouts, custom `Inter` typography, scalable `@expo/vector-icons`, haptic engine feedback, and fluid layout animations that smoothly slide lists as items are modified.
 - **Privacy First Storage:** No remote medical databases. All of your medicine tracking data is securely bound locally on-device.
 
 ## 📸 Screenshots
@@ -39,7 +39,7 @@
 - **AI Brain:** Google Gemini 2.5 Flash (via REST)
 - **Local Persistence:** `@react-native-async-storage`
 - **Background Processes:** `expo-notifications` (Custom Android `HIGH` Importance Channels)
-- **Styling Pipeline:** Vanilla StyleSheet, `expo-linear-gradient`, `@expo-google-fonts`
+- **Styling Pipeline:** Vanilla StyleSheet, `@expo/vector-icons` (Ionicons/FontAwesome5), `@expo-google-fonts`
 
 ## 📦 Setup & Installation
 
