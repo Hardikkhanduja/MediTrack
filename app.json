@@ -14,7 +14,7 @@
     },
     "android": {
       "package": "com.hardikkhanduja.meditrack",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0d0d0d"
@@ -23,8 +23,6 @@
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "WAKE_LOCK",
-        "USE_EXACT_ALARM",
-        "SCHEDULE_EXACT_ALARM",
         "POST_NOTIFICATIONS"
       ]
     },
@@ -45,6 +43,13 @@
       "eas": {
         "projectId": "78c65859-56e1-42df-8778-183e972365d5"
       }
-    }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/78c65859-56e1-42df-8778-183e972365d5"
+    },
+    "ios": {}
   }
 }

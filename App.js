@@ -1,20 +1,21 @@
+import { View, TouchableOpacity, StyleSheet, Text } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import HomeScreen from "./app/screens/HomeScreen";
-import AddMedicineScreen from "./app/screens/AddMedicineScreen";
-import EditMedicineScreen from "./app/screens/EditMedicineScreen";
-import MedicineDetailScreen from "./app/screens/MedicineDetailScreen";
-import { Text, View, Image } from "react-native";
-import { useState, useEffect } from "react";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
-import {
-  useFonts,
-  Inter_400Regular,
-  Inter_600SemiBold,
-  Inter_800ExtraBold,
-} from "@expo-google-fonts/inter";
 
-// Handle notifications when app is open
+import SplashScreen         from "./app/screens/SplashScreen";
+import OnboardingScreen     from "./app/screens/OnboardingScreen";
+import HomeScreen           from "./app/screens/HomeScreen";
+import MedicationScreen     from "./app/screens/MedicationScreen";
+import ScanScreen           from "./app/screens/ScanScreen";
+import SettingsScreen       from "./app/screens/SettingsScreen";
+import AddMedicineScreen    from "./app/screens/AddMedicineScreen";
+import EditMedicineScreen   from "./app/screens/EditMedicineScreen";
+import MedicineDetailScreen from "./app/screens/MedicineDetailScreen";
+import NotificationScreen   from "./app/screens/NotificationScreen";
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -24,129 +25,126 @@ Notifications.setNotificationHandler({
 });
 
 const Stack = createNativeStackNavigator();
+const Tab   = createBottomTabNavigator();
+
+const TABS = [
+  { name: "Home",       icon: "home",              iconOutline: "home-outline",         label: "HOME"       },
+  { name: "Scan",       icon: "scan",              iconOutline: "scan-outline",         label: "SCAN"       },
+  { name: "Medication", icon: "medkit",            iconOutline: "medkit-outline",       label: "MEDICATION" },
+  { name: "Settings",   icon: "settings-sharp",    iconOutline: "settings-outline",     label: "SETTINGS"   },
+];
+
+function CustomTabBar({ state, navigation }) {
+  return (
+    <View style={styles.tabBarOuter}>
+      <View style={styles.tabBarContainer}>
+        {TABS.map((tab, index) => {
+          const isFocused = state.index === index;
+          return (
+            <TouchableOpacity
+              key={tab.name}
+              onPress={() => { if (!isFocused) navigation.navigate(tab.name); }}
+              activeOpacity={0.7}
+              style={styles.tabItem}
+            >
+              <Ionicons
+                name={isFocused ? tab.icon : tab.iconOutline}
+                size={22}
+                color={isFocused ? "#9b8fff" : "#555568"}
+              />
+              <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function MainTabs() {
+  return (
+    <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{ headerShown: false }}
+    >
+      <Tab.Screen name="Home"       component={HomeScreen} />
+      <Tab.Screen name="Scan"       component={ScanScreen} />
+      <Tab.Screen name="Medication" component={MedicationScreen} />
+      <Tab.Screen name="Settings"   component={SettingsScreen} />
+    </Tab.Navigator>
+  );
+}
 
 export default function App() {
-  const [isReady, setIsReady] = useState(false);
-
-  const [fontsLoaded] = useFonts({
-    Inter_400Regular,
-    Inter_600SemiBold,
-    Inter_800ExtraBold,
-  });
-
-  useEffect(() => {
-    async function setup() {
-      // Request permission
-      const { status } = await Notifications.requestPermissionsAsync();
-      console.log("Notification permission:", status);
-
-      // Create notification channels for Android
-      await Notifications.setNotificationChannelAsync("meditrack-alerts", {
-        name: "Expiry Alerts",
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: "#6c63ff",
-        sound: true,
-      });
-
-      await Notifications.setNotificationChannelAsync("meditrack-reminders", {
-        name: "Daily Reminders",
-        importance: Notifications.AndroidImportance.HIGH,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: "#6c63ff",
-        sound: true,
-      });
-    }
-
-    setup();
-    const timer = setTimeout(() => setIsReady(true), 2000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (!isReady || !fontsLoaded) {
-    return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "#0d0d0d",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Image
-          source={require("./assets/splash.png")}
-          style={{ width: 180, height: 180, resizeMode: "contain" }}
-        />
-        <Text
-          style={{
-            color: "#ffffff",
-            fontSize: 28,
-            fontWeight: "800",
-            marginTop: 20,
-            letterSpacing: 0.3,
-          }}
-        >
-          MediTrack
-        </Text>
-        <Text
-          style={{
-            color: "#6c63ff",
-            fontSize: 13,
-            marginTop: 8,
-          }}
-        >
-          Your Medicine Cabinet 💊
-        </Text>
-      </View>
-    );
-  }
-
   return (
     <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          headerStyle: { backgroundColor: "#0f0f14" },
-          headerTintColor: "#ffffff",
-          headerTitleStyle: { fontWeight: "bold" },
-          headerShadowVisible: false,
-          animation: "fade_from_bottom",
-          animationDuration: 250,
-        }}
-      >
-        <Stack.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{
-            headerTitle: () => (
-              <Text
-                style={{
-                  color: "#fff",
-                  fontSize: 18,
-                  fontFamily: "Inter_800ExtraBold",
-                  letterSpacing: 0.3,
-                }}
-              >
-                MediTrack 💊
-              </Text>
-            ),
-          }}
-        />
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Splash"     component={SplashScreen} />
+        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+        <Stack.Screen name="Main"       component={MainTabs} />
+        <Stack.Screen name="MainTabs"   component={MainTabs} />
         <Stack.Screen
           name="AddMedicine"
           component={AddMedicineScreen}
-          options={{ title: "Add Medicine" }}
+          options={{ animation: "slide_from_bottom" }}
         />
         <Stack.Screen
           name="EditMedicine"
           component={EditMedicineScreen}
-          options={{ title: "Edit Medicine" }}
+          options={{ animation: "fade_from_bottom" }}
         />
         <Stack.Screen
           name="MedicineDetail"
           component={MedicineDetailScreen}
-          options={{ title: "Medicine Details" }}
+          options={{ animation: "fade_from_bottom" }}
+        />
+        <Stack.Screen
+          name="Notifications"
+          component={NotificationScreen}
+          options={{ animation: "slide_from_right" }}
         />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBarOuter: {
+    position: "absolute",
+    bottom: 16,
+    left: 12,
+    right: 12,
+  },
+  tabBarContainer: {
+    flexDirection: "row",
+    backgroundColor: "#12121e",
+    borderRadius: 40,
+    borderWidth: 1.5,
+    borderColor: "#3a3560",
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    shadowColor: "#9b8fff",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+    gap: 4,
+  },
+  tabLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: "#555568",
+    letterSpacing: 0.5,
+  },
+  tabLabelActive: {
+    color: "#9b8fff",
+  },
+});

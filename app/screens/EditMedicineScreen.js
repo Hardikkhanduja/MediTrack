@@ -6,20 +6,71 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  ActivityIndicator,
+  StatusBar,
+  Platform,
 } from "react-native";
-import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { updateMedicine } from "../data/storage";
 import { scheduleMedicineAlerts } from "../data/notifications";
 import * as Haptics from "expo-haptics";
+import PillLogo from "../components/PillLogo";
+
+// Accepts multiple date formats and normalizes to YYYY-MM-DD
+function normalizeDate(input) {
+  const trimmed = input.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const dmy = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+  const my = trimmed.match(/^(\d{2})\/(\d{4})$/);
+  if (my) return `${my[2]}-${my[1]}-01`;
+  const myShort = trimmed.match(/^(\d{2})\/(\d{2})$/);
+  if (myShort) return `20${myShort[2]}-${myShort[1]}-01`;
+  return trimmed;
+}
 
 export default function EditMedicineScreen({ navigation, route }) {
   const { medicine } = route.params;
 
-  const [name, setName] = useState(medicine.name);
-  const [expiry, setExpiry] = useState(medicine.expiry);
-  const [quantity, setQuantity] = useState(medicine.quantity.toString());
-  const [loading, setLoading] = useState(false);
+  const [name, setName]       = useState(medicine.name || "");
+  const [expiry, setExpiry]   = useState(medicine.expiry || "");
+  const [quantity, setQuantity] = useState(
+    medicine.quantity ? medicine.quantity.toString() : "1"
+  );
+  const [loading, setLoading]           = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(
+    medicine.expiry ? new Date(medicine.expiry) : new Date()
+  );
+
+  async function handleCalendarPress() {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowDatePicker(true);
+  }
+
+  function handleDateChange(event, date) {
+    if (Platform.OS === "android") setShowDatePicker(false);
+    if (!date || event.type === "dismissed") return;
+    setSelectedDate(date);
+    const yyyy = date.getFullYear();
+    const mm   = String(date.getMonth() + 1).padStart(2, "0");
+    const dd   = String(date.getDate()).padStart(2, "0");
+    setExpiry(`${yyyy}-${mm}-${dd}`);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }
+
+  async function incrementQuantity() {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setQuantity((prev) => ((parseInt(prev) || 0) + 1).toString());
+  }
+
+  async function decrementQuantity() {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const current = parseInt(quantity) || 0;
+    if (current > 0) setQuantity((current - 1).toString());
+  }
 
   async function handleUpdate() {
     if (!name.trim()) {
@@ -27,17 +78,20 @@ export default function EditMedicineScreen({ navigation, route }) {
       Alert.alert("Missing Info", "Please enter medicine name");
       return;
     }
-    if (!expiry.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(expiry)) {
+
+    const normalizedExpiry = normalizeDate(expiry);
+    if (!normalizedExpiry || !/^\d{4}-\d{2}-\d{2}$/.test(normalizedExpiry)) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
         "Invalid Date",
-        "Please enter date in YYYY-MM-DD format\ne.g. 2026-12-01",
+        "Please enter date in any of these formats:\nYYYY-MM-DD\nDD/MM/YYYY\nMM/YYYY\n\nOr tap the calendar icon to pick a date."
       );
       return;
     }
-    if (!quantity.trim()) {
+
+    if (!quantity.trim() || parseInt(quantity) < 1) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Missing Info", "Please enter quantity");
+      Alert.alert("Missing Info", "Please enter a valid quantity");
       return;
     }
 
@@ -46,148 +100,342 @@ export default function EditMedicineScreen({ navigation, route }) {
     const updatedMedicine = {
       id: medicine.id,
       name: name.trim(),
-      expiry: expiry.trim(),
+      expiry: normalizedExpiry,
       quantity: parseInt(quantity),
     };
 
-    // Save first — fast
     await updateMedicine(updatedMedicine);
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-    // Reschedule notifications in background — don't await
     scheduleMedicineAlerts(updatedMedicine).catch(console.log);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     setLoading(false);
     navigation.goBack();
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <Text style={styles.pageTitle}>Edit Medicine</Text>
-      <Text style={styles.pageSubtitle}>Update the details below</Text>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#0d0d0f" />
 
-      <View style={styles.formCard}>
-        <Text style={styles.label}>
-          <FontAwesome5 name="pills" size={12} color="#8888aa" /> Medicine Name
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholderTextColor="#555570"
-          value={name}
-          onChangeText={setName}
-        />
-
-        <View style={styles.divider} />
-
-        <Text style={styles.label}>
-          <Ionicons name="calendar-outline" size={13} color="#8888aa" /> Expiry
-          Date
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor="#555570"
-          value={expiry}
-          onChangeText={setExpiry}
-        />
-
-        <View style={styles.divider} />
-
-        <Text style={styles.label}>
-          <Ionicons name="calculator-outline" size={13} color="#8888aa" />{" "}
-          Quantity
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholderTextColor="#555570"
-          value={quantity}
-          onChangeText={setQuantity}
-          keyboardType="numeric"
-        />
+      {/* ── Header ── */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backBtn}
+          >
+            <Ionicons name="arrow-back" size={20} color="#aaaacc" />
+          </TouchableOpacity>
+          <View style={styles.headerAccentBar} />
+          <Text style={styles.headerBrand}>MediTrack</Text>
+          <PillLogo size={14} colorLeft="#9b8fff" colorRight="#4b4ba3" rotate="-20deg" />
+        </View>
+        <TouchableOpacity style={styles.bellBtn}>
+          <Ionicons name="notifications-outline" size={20} color="#aaaacc" />
+        </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        style={[styles.saveButtonWrapper, loading && { opacity: 0.6 }]}
-        onPress={handleUpdate}
-        disabled={loading}
-        activeOpacity={0.85}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.saveButton}>
-          <Text style={styles.saveButtonText}>
-            {loading ? "Saving..." : "Update Medicine"}
-          </Text>
+        {/* ── Medicine info card (shows what you're editing) ── */}
+        <View style={styles.editingCard}>
+          <View style={styles.editingIconBox}>
+            <PillLogo size={20} colorLeft="#9b8fff" colorRight="#4b4ba3" rotate="-20deg" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.editingLabel}>EDITING MEDICINE</Text>
+            <Text style={styles.editingName} numberOfLines={1}>
+              {medicine.name}
+            </Text>
+          </View>
         </View>
-      </TouchableOpacity>
-    </ScrollView>
+
+        {/* ── Medicine Name ── */}
+        <View style={styles.fieldGroup}>
+          <Text style={styles.fieldLabel}>MEDICINE NAME</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Dolo 650, Crocin"
+            placeholderTextColor="#555568"
+            value={name}
+            onChangeText={setName}
+          />
+        </View>
+
+        {/* ── Expiry Date ── */}
+        <View style={styles.fieldGroup}>
+          <Text style={styles.fieldLabel}>EXPIRY DATE</Text>
+          <Text style={styles.fieldHint}>Any format: DD/MM/YYYY · MM/YYYY · YYYY-MM-DD</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={[styles.input, { flex: 1, borderWidth: 0 }]}
+              placeholder="e.g. 10/12/2026 or 12/2026"
+              placeholderTextColor="#555568"
+              value={expiry}
+              onChangeText={setExpiry}
+              keyboardType="numeric"
+            />
+            <TouchableOpacity
+              onPress={handleCalendarPress}
+              style={styles.calendarBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="calendar-outline" size={20} color="#9b8fff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Date Picker */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={selectedDate}
+            mode="date"
+            display={Platform.OS === "android" ? "calendar" : "spinner"}
+            onChange={handleDateChange}
+            minimumDate={new Date()}
+          />
+        )}
+
+        {/* ── Quantity ── */}
+        <View style={styles.fieldGroup}>
+          <Text style={styles.fieldLabel}>QUANTITY</Text>
+          <View style={styles.quantityRow}>
+            <TouchableOpacity style={styles.qtyBtn} onPress={decrementQuantity}>
+              <Ionicons name="remove" size={20} color="#aaaacc" />
+            </TouchableOpacity>
+            <TextInput
+              style={styles.qtyInput}
+              value={quantity}
+              onChangeText={(v) => setQuantity(v.replace(/[^0-9]/g, ""))}
+              keyboardType="numeric"
+              textAlign="center"
+            />
+            <TouchableOpacity style={styles.qtyBtn} onPress={incrementQuantity}>
+              <Ionicons name="add" size={20} color="#aaaacc" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── Save Row ── */}
+        <View style={styles.saveRow}>
+          <TouchableOpacity
+            style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
+            onPress={handleUpdate}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Text style={styles.saveBtnText}>UPDATE MEDICINE</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="close" size={20} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0d0d0d",
-    paddingHorizontal: 16,
-    paddingTop: 24,
+    backgroundColor: "#0d0d0f",
   },
-  pageTitle: {
-    fontSize: 26,
-    fontFamily: "Inter_800ExtraBold",
+
+  // Header
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 8,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#1a1a24",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#2a2a38",
+  },
+  headerAccentBar: {
+    width: 3,
+    height: 22,
+    backgroundColor: "#9b8fff",
+    borderRadius: 2,
+  },
+  headerBrand: {
+    fontSize: 20,
+    fontWeight: "700",
     color: "#ffffff",
+    letterSpacing: 0.2,
+  },
+  bellBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#1a1a24",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#2a2a38",
+  },
+
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+
+  // Editing card — shows which medicine is being edited
+  editingCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#161620",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: "#9b8fff33",
+    gap: 14,
+  },
+  editingIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "#9b8fff22",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#9b8fff33",
+  },
+  editingLabel: {
+    fontSize: 10,
+    color: "#9b8fff",
+    fontWeight: "700",
+    letterSpacing: 1.5,
     marginBottom: 4,
   },
-  pageSubtitle: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    color: "#8888aa",
-    marginBottom: 28,
+  editingName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#ffffff",
   },
-  formCard: {
-    backgroundColor: "#161616",
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: "#222222",
+
+  // Form fields
+  fieldGroup: {
+    marginBottom: 16,
   },
-  label: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-    color: "#8888aa",
+  fieldLabel: {
+    fontSize: 10,
+    color: "#666680",
+    fontWeight: "700",
+    letterSpacing: 1.5,
+    marginBottom: 4,
+  },
+  fieldHint: {
+    fontSize: 11,
+    color: "#444458",
     marginBottom: 8,
-    marginTop: 4,
-    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: "#0d0d0d",
+    backgroundColor: "#161620",
     borderRadius: 12,
-    padding: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 15,
     color: "#ffffff",
-    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: "#222230",
+    fontWeight: "500",
   },
-  divider: {
-    height: 1,
-    backgroundColor: "#2a2a38",
-    marginVertical: 14,
-  },
-  saveButtonWrapper: {
-    marginTop: 20,
-    marginBottom: 40,
-    borderRadius: 16,
-    shadowColor: "#000000",
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  saveButton: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 18,
+  inputRow: {
+    flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#161620",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#222230",
+    paddingRight: 14,
   },
-  saveButtonText: {
-    color: "#000000",
-    fontSize: 16,
-    fontFamily: "Inter_800ExtraBold",
-    letterSpacing: 0.5,
+  calendarBtn: {
+    padding: 4,
+    marginLeft: 8,
+  },
+
+  // Quantity stepper
+  quantityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#161620",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#222230",
+    overflow: "hidden",
+  },
+  qtyBtn: {
+    width: 52,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1e1e2e",
+  },
+  qtyInput: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#ffffff",
+    textAlign: "center",
+    paddingVertical: 14,
+  },
+
+  // Save row
+  saveRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 8,
+  },
+  saveBtn: {
+    flex: 1,
+    backgroundColor: "#9b8fff",
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  saveBtnDisabled: { opacity: 0.6 },
+  saveBtnText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  cancelBtn: {
+    width: 54,
+    height: 54,
+    borderRadius: 14,
+    backgroundColor: "#2a2a38",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#3a3a50",
   },
 });
