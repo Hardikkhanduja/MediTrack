@@ -19,6 +19,7 @@ import { scheduleMedicineAlerts } from "../data/notifications";
 import * as Haptics from "expo-haptics";
 import PillLogo from "../components/PillLogo";
 import { entranceAnimation, pressAnimation } from "../motion";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Accepts multiple date formats and normalizes to YYYY-MM-DD
 function normalizeDate(input) {
@@ -36,23 +37,27 @@ function normalizeDate(input) {
 export default function EditMedicineScreen({ navigation, route }) {
   const { medicine } = route.params;
 
-  const [name, setName]       = useState(medicine.name || "");
-  const [expiry, setExpiry]   = useState(medicine.expiry || "");
+  const [name, setName] = useState(medicine.name || "");
+  const [expiry, setExpiry] = useState(medicine.expiry || "");
   const [quantity, setQuantity] = useState(
-    medicine.quantity ? medicine.quantity.toString() : "1"
+    medicine.quantity ? medicine.quantity.toString() : "1",
   );
-  const [loading, setLoading]           = useState(false);
+  const [loading, setLoading] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(
-    medicine.expiry ? new Date(medicine.expiry) : new Date()
+    medicine.expiry ? new Date(medicine.expiry) : new Date(),
   );
 
-  const fadeAnim     = useRef(new Animated.Value(0)).current;
-  const slideAnim    = useRef(new Animated.Value(10)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(10)).current;
   const saveBtnScale = useRef(new Animated.Value(1)).current;
 
+  const insets = useSafeAreaInsets();
+
   // Run entrance on mount
-  useEffect(() => { entranceAnimation(fadeAnim, slideAnim).start(); }, []);
+  useEffect(() => {
+    entranceAnimation(fadeAnim, slideAnim).start();
+  }, []);
 
   async function handleCalendarPress() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -64,8 +69,8 @@ export default function EditMedicineScreen({ navigation, route }) {
     if (!date || event.type === "dismissed") return;
     setSelectedDate(date);
     const yyyy = date.getFullYear();
-    const mm   = String(date.getMonth() + 1).padStart(2, "0");
-    const dd   = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
     setExpiry(`${yyyy}-${mm}-${dd}`);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
@@ -93,7 +98,7 @@ export default function EditMedicineScreen({ navigation, route }) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
         "Invalid Date",
-        "Please enter date in any of these formats:\nYYYY-MM-DD\nDD/MM/YYYY\nMM/YYYY\n\nOr tap the calendar icon to pick a date."
+        "Please enter date in any of these formats:\nYYYY-MM-DD\nDD/MM/YYYY\nMM/YYYY\n\nOr tap the calendar icon to pick a date.",
       );
       return;
     }
@@ -127,7 +132,14 @@ export default function EditMedicineScreen({ navigation, route }) {
       <StatusBar barStyle="light-content" backgroundColor="#0d0d0f" />
 
       {/* ── Header ── */}
-      <View style={styles.header}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + 12,
+          },
+        ]}
+      >
         <View style={styles.headerLeft}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -137,127 +149,155 @@ export default function EditMedicineScreen({ navigation, route }) {
           </TouchableOpacity>
           <View style={styles.headerAccentBar} />
           <Text style={styles.headerBrand}>MediTrack</Text>
-          <PillLogo size={14} colorLeft="#9b8fff" colorRight="#4b4ba3" rotate="-20deg" />
+          <PillLogo
+            size={14}
+            colorLeft="#9b8fff"
+            colorRight="#4b4ba3"
+            rotate="-20deg"
+          />
         </View>
-        <TouchableOpacity style={styles.bellBtn}>
+        <TouchableOpacity
+          style={styles.bellBtn}
+          onPress={() => navigation.navigate("Notifications")}
+        >
           <Ionicons name="notifications-outline" size={20} color="#aaaacc" />
         </TouchableOpacity>
       </View>
 
       <Animated.View
-        style={[styles.screenWrapper, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
+        style={[
+          styles.screenWrapper,
+          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+        ]}
       >
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* ── Medicine info card (shows what you're editing) ── */}
-        <View style={styles.editingCard}>
-          <View style={styles.editingIconBox}>
-            <PillLogo size={20} colorLeft="#9b8fff" colorRight="#4b4ba3" rotate="-20deg" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.editingLabel}>EDITING MEDICINE</Text>
-            <Text style={styles.editingName} numberOfLines={1}>
-              {medicine.name}
-            </Text>
-          </View>
-        </View>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={styles.screenTitle}>Edit Medicine</Text>
 
-        {/* ── Medicine Name ── */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>MEDICINE NAME</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Dolo 650, Crocin"
-            placeholderTextColor="#555568"
-            value={name}
-            onChangeText={setName}
-          />
-        </View>
+          {/* ── Medicine info card (shows what you're editing) ── */}
+          <View style={styles.editingCard}>
+            <View style={styles.editingIconBox}>
+              <PillLogo
+                size={20}
+                colorLeft="#9b8fff"
+                colorRight="#4b4ba3"
+                rotate="-20deg"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.editingLabel}>EDITING MEDICINE</Text>
+              <Text style={styles.editingName} numberOfLines={1}>
+                {medicine.name}
+              </Text>
+            </View>
+          </View>
 
-        {/* ── Expiry Date ── */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>EXPIRY DATE</Text>
-          <Text style={styles.fieldHint}>Any format: DD/MM/YYYY · MM/YYYY · YYYY-MM-DD</Text>
-          <View style={styles.inputRow}>
+          {/* ── Medicine Name ── */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>MEDICINE NAME</Text>
             <TextInput
-              style={[styles.input, { flex: 1, borderWidth: 0 }]}
-              placeholder="e.g. 10/12/2026 or 12/2026"
+              style={styles.input}
+              placeholder="e.g. Dolo 650, Crocin"
               placeholderTextColor="#555568"
-              value={expiry}
-              onChangeText={setExpiry}
-              keyboardType="numeric"
+              value={name}
+              onChangeText={setName}
             />
-            <TouchableOpacity
-              onPress={handleCalendarPress}
-              style={styles.calendarBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          </View>
+
+          {/* ── Expiry Date ── */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>EXPIRY DATE</Text>
+            <Text style={styles.fieldHint}>
+              Any format: DD/MM/YYYY · MM/YYYY · YYYY-MM-DD
+            </Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={[styles.input, { flex: 1, borderWidth: 0 }]}
+                placeholder="e.g. 10/12/2026 or 12/2026"
+                placeholderTextColor="#555568"
+                value={expiry}
+                onChangeText={setExpiry}
+                keyboardType="numeric"
+              />
+              <TouchableOpacity
+                onPress={handleCalendarPress}
+                style={styles.calendarBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#9b8fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Date Picker */}
+          {showDatePicker && (
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display={Platform.OS === "android" ? "calendar" : "spinner"}
+              onChange={handleDateChange}
+              minimumDate={new Date()}
+            />
+          )}
+
+          {/* ── Quantity ── */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>QUANTITY</Text>
+            <View style={styles.quantityRow}>
+              <TouchableOpacity
+                style={styles.qtyBtn}
+                onPress={decrementQuantity}
+              >
+                <Ionicons name="remove" size={20} color="#aaaacc" />
+              </TouchableOpacity>
+              <TextInput
+                style={styles.qtyInput}
+                value={quantity}
+                onChangeText={(v) => setQuantity(v.replace(/[^0-9]/g, ""))}
+                keyboardType="numeric"
+                textAlign="center"
+              />
+              <TouchableOpacity
+                style={styles.qtyBtn}
+                onPress={incrementQuantity}
+              >
+                <Ionicons name="add" size={20} color="#aaaacc" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ── Save Row ── */}
+          <View style={styles.saveRow}>
+            <Animated.View
+              style={[{ flex: 1 }, { transform: [{ scale: saveBtnScale }] }]}
             >
-              <Ionicons name="calendar-outline" size={20} color="#9b8fff" />
+              <TouchableOpacity
+                style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
+                onPress={handleUpdate}
+                disabled={loading}
+                activeOpacity={0.88}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.saveBtnText}>UPDATE MEDICINE</Text>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close" size={20} color="#ffffff" />
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Date Picker */}
-        {showDatePicker && (
-          <DateTimePicker
-            value={selectedDate}
-            mode="date"
-            display={Platform.OS === "android" ? "calendar" : "spinner"}
-            onChange={handleDateChange}
-            minimumDate={new Date()}
-          />
-        )}
-
-        {/* ── Quantity ── */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>QUANTITY</Text>
-          <View style={styles.quantityRow}>
-            <TouchableOpacity style={styles.qtyBtn} onPress={decrementQuantity}>
-              <Ionicons name="remove" size={20} color="#aaaacc" />
-            </TouchableOpacity>
-            <TextInput
-              style={styles.qtyInput}
-              value={quantity}
-              onChangeText={(v) => setQuantity(v.replace(/[^0-9]/g, ""))}
-              keyboardType="numeric"
-              textAlign="center"
-            />
-            <TouchableOpacity style={styles.qtyBtn} onPress={incrementQuantity}>
-              <Ionicons name="add" size={20} color="#aaaacc" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ── Save Row ── */}
-        <View style={styles.saveRow}>
-          <Animated.View style={[{ flex: 1 }, { transform: [{ scale: saveBtnScale }] }]}>
-            <TouchableOpacity
-              style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
-              onPress={handleUpdate}
-              disabled={loading}
-              activeOpacity={0.88}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Text style={styles.saveBtnText}>UPDATE MEDICINE</Text>
-              )}
-            </TouchableOpacity>
-          </Animated.View>
-          <TouchableOpacity
-            style={styles.cancelBtn}
-            onPress={() => navigation.goBack()}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="close" size={20} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
+          <View style={{ height: 40 }} />
+        </ScrollView>
       </Animated.View>
     </View>
   );
@@ -276,8 +316,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
+    paddingBottom: 16,
   },
   headerLeft: {
     flexDirection: "row",
@@ -319,7 +358,14 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 20,
+  },
+
+  screenTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#9b8fff",
+    marginBottom: 20,
   },
 
   // Editing card — shows which medicine is being edited

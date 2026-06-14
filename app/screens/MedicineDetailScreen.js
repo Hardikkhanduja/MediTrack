@@ -27,6 +27,7 @@ import {
 } from "../motion";
 import { useLayout } from "../layout";
 import { getStockStatus } from "../stock";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function getStatus(expiryDate) {
   const today = new Date();
@@ -97,6 +98,8 @@ export default function MedicineDetailScreen({ route, navigation }) {
   });
 
   const [weekHistory, setWeekHistory] = useState([]);
+
+  const insets = useSafeAreaInsets();
 
   function closeCustomModal() {
     setModalConfig((prev) => ({ ...prev, visible: false }));
@@ -503,7 +506,13 @@ export default function MedicineDetailScreen({ route, navigation }) {
           >
             {/* ── Header ── */}
             <View
-              style={[styles.header, { paddingHorizontal: contentPadding }]}
+              style={[
+                styles.header,
+                {
+                  paddingHorizontal: contentPadding,
+                  paddingTop: insets.top + 12,
+                },
+              ]}
             >
               <View style={styles.headerLeft}>
                 <TouchableOpacity
@@ -523,6 +532,7 @@ export default function MedicineDetailScreen({ route, navigation }) {
                   rotate="-20deg"
                 />
               </View>
+
               <TouchableOpacity
                 style={styles.editBtn}
                 onPress={() =>
@@ -532,6 +542,15 @@ export default function MedicineDetailScreen({ route, navigation }) {
                 <Ionicons name="pencil-outline" size={16} color="#9b8fff" />
               </TouchableOpacity>
             </View>
+
+            <Text
+              style={[
+                styles.screenTitle,
+                { paddingHorizontal: contentPadding },
+              ]}
+            >
+              Medicine Details
+            </Text>
 
             {/*
           On large tablets: info card + tracking card sit side-by-side.
@@ -1063,7 +1082,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: 20,
     paddingBottom: 16,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -1077,6 +1095,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#2a2a38",
   },
+
+  screenTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#9b8fff",
+    marginBottom: 16,
+  },
+
   headerAccentBar: {
     width: 3,
     height: 22,

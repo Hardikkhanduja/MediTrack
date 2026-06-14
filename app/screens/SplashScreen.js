@@ -1,13 +1,15 @@
-import { View, Text, StyleSheet } from "react-native";
-import { useEffect } from "react";
+import { View, Text, StyleSheet} from "react-native";
+import { useEffect} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import PillLogo from "../components/PillLogo";
 
 export default function SplashScreen({ navigation }) {
+
+
   useEffect(() => {
-    async function navigate() {
+     async function navigate() {
       try {
-        await new Promise((res) => setTimeout(res, 2500));
+        await new Promise((res) => setTimeout(res, 1500));
         const hasOnboarded = await AsyncStorage.getItem("hasOnboarded");
         if (hasOnboarded) {
           navigation.replace("Main");
@@ -19,31 +21,33 @@ export default function SplashScreen({ navigation }) {
       }
     }
     navigate();
-  }, []);
+  }, [navigation]);
 
   return (
     <View style={styles.container}>
-
       {/* Center Content */}
       <View style={styles.center}>
-
         {/* Pill icon with glow */}
         <View style={styles.glowOuter}>
+
           <View style={styles.glowInner}>
             <View style={styles.iconWrapper}>
-              <PillLogo size={34} colorLeft="#9b8fff" colorRight="#4b4ba3" rotate="-20deg" />
+              <PillLogo
+                size={34}
+                colorLeft="#9b8fff"
+                colorRight="#4b4ba3"
+                rotate="-20deg"
+              />
             </View>
           </View>
         </View>
 
         <Text style={styles.title}>MediTrack</Text>
         <Text style={styles.tagline}>Track medicines. Stay safe.</Text>
-
       </View>
 
       {/* Bottom text */}
       <Text style={styles.bottom}>— PRIVATE. OFFLINE. SECURE. —</Text>
-
     </View>
   );
 }

@@ -17,15 +17,17 @@ import { useState, useCallback } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import PillLogo from "../components/PillLogo";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const USER_NAME_KEY = "meditrack_user_name";
 
-export default function SettingsScreen() {
-  const [userName, setUserName]               = useState("");
-  const [notificationsEnabled, setNotif]      = useState(true);
-  const [reminderTime]                        = useState("08:30 AM");
-  const [nameModalVisible, setNameModal]      = useState(false);
-  const [inputName, setInputName]             = useState("");
+export default function SettingsScreen({ navigation }) {
+  const [userName, setUserName] = useState("");
+  const [darkMode, setDarkMode] = useState(true);
+  const [nameModalVisible, setNameModal] = useState(false);
+  const [themeModalVisible, setThemeModalVisible] = useState(false);
+  const [inputName, setInputName] = useState("");
+  const insets = useSafeAreaInsets();
 
   // Load saved name on focus
   useFocusEffect(
@@ -45,7 +47,7 @@ export default function SettingsScreen() {
         }
       }
       loadName();
-    }, [])
+    }, []),
   );
 
   function openEditName() {
@@ -76,6 +78,16 @@ export default function SettingsScreen() {
     Alert.alert("Privacy Policy", "Privacy Policy will be available soon.");
   }
 
+  function handleThemeToggle(value) {
+    if (!value) {
+      setDarkMode(true);
+      setThemeModalVisible(true);
+      return;
+    }
+
+    setDarkMode(true);
+  }
+
   // First letter of name for avatar
   const avatarLetter = userName ? userName.trim()[0].toUpperCase() : null;
 
@@ -84,13 +96,28 @@ export default function SettingsScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#0d0d0f" />
 
       {/* ── Header ── */}
-      <View style={styles.header}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + 12,
+          },
+        ]}
+      >
         <View style={styles.headerLeft}>
           <View style={styles.headerAccentBar} />
           <Text style={styles.headerBrand}>MediTrack</Text>
-          <PillLogo size={14} colorLeft="#9b8fff" colorRight="#4b4ba3" rotate="-20deg" />
+          <PillLogo
+            size={14}
+            colorLeft="#9b8fff"
+            colorRight="#4b4ba3"
+            rotate="-20deg"
+          />
         </View>
-        <TouchableOpacity style={styles.bellBtn}>
+        <TouchableOpacity
+          style={styles.bellBtn}
+          onPress={() => navigation.navigate("Notifications")}
+        >
           <Ionicons name="notifications-outline" size={20} color="#aaaacc" />
         </TouchableOpacity>
       </View>
@@ -99,6 +126,7 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        <Text style={styles.screenTitle}>Settings</Text>
         {/* ── Profile Section ── */}
         <TouchableOpacity
           style={styles.profileSection}
@@ -128,41 +156,26 @@ export default function SettingsScreen() {
         {/* ── PREFERENCES ── */}
         <Text style={styles.sectionLabel}>PREFERENCES</Text>
         <View style={styles.card}>
-
-          {/* Notifications */}
           <View style={styles.settingRow}>
             <View style={styles.settingIconBox}>
-              <Ionicons name="notifications-outline" size={18} color="#9b8fff" />
+              <Ionicons name="moon-outline" size={18} color="#9b8fff" />
             </View>
+
             <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>Notifications</Text>
-              <Text style={styles.settingSubtitle}>Manage medication alerts</Text>
+              <Text style={styles.settingTitle}>Dark Mode</Text>
+              <Text style={styles.settingSubtitle}>
+                MediTrack is optimized for dark theme
+              </Text>
             </View>
+
             <Switch
-              value={notificationsEnabled}
-              onValueChange={setNotif}
+              value={darkMode}
+              onValueChange={handleThemeToggle}
               trackColor={{ false: "#2a2a38", true: "#9b8fff" }}
               thumbColor="#ffffff"
               ios_backgroundColor="#2a2a38"
             />
           </View>
-
-          <View style={styles.rowDivider} />
-
-          {/* Reminder Time */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingIconBox}>
-              <Ionicons name="time-outline" size={18} color="#9b8fff" />
-            </View>
-            <View style={styles.settingInfo}>
-              <Text style={styles.settingTitle}>Reminder Time</Text>
-              <Text style={styles.settingSubtitle}>Daily summary alert</Text>
-            </View>
-            <View style={styles.timeChip}>
-              <Text style={styles.timeChipText}>{reminderTime}</Text>
-            </View>
-          </View>
-
         </View>
 
         {/* ── PRIVACY ── */}
@@ -170,7 +183,11 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <View style={styles.privacyRow}>
             <View style={styles.settingIconBox}>
-              <Ionicons name="shield-checkmark-outline" size={18} color="#9b8fff" />
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={18}
+                color="#9b8fff"
+              />
             </View>
             <View style={styles.privacyInfo}>
               <View style={styles.privacyTitleRow}>
@@ -180,7 +197,8 @@ export default function SettingsScreen() {
                 </View>
               </View>
               <Text style={styles.privacyDesc}>
-                Your medical data is encrypted and stored locally on this device. Syncing is currently disabled for maximum privacy.
+                Your medical data is encrypted and stored locally on this
+                device. Syncing is currently disabled for maximum privacy.
               </Text>
             </View>
           </View>
@@ -189,9 +207,17 @@ export default function SettingsScreen() {
         {/* ── LEGAL & INFORMATION ── */}
         <Text style={styles.sectionLabel}>LEGAL & INFORMATION</Text>
         <View style={styles.card}>
-          <TouchableOpacity style={styles.legalRow} onPress={handleTerms} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.legalRow}
+            onPress={handleTerms}
+            activeOpacity={0.7}
+          >
             <View style={styles.settingIconBox}>
-              <Ionicons name="document-text-outline" size={18} color="#9b8fff" />
+              <Ionicons
+                name="document-text-outline"
+                size={18}
+                color="#9b8fff"
+              />
             </View>
             <Text style={styles.legalTitle}>Terms of Service</Text>
             <Ionicons name="chevron-forward" size={18} color="#555568" />
@@ -199,7 +225,11 @@ export default function SettingsScreen() {
 
           <View style={styles.rowDivider} />
 
-          <TouchableOpacity style={styles.legalRow} onPress={handlePrivacy} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.legalRow}
+            onPress={handlePrivacy}
+            activeOpacity={0.7}
+          >
             <View style={styles.settingIconBox}>
               <Ionicons name="shield-outline" size={18} color="#9b8fff" />
             </View>
@@ -211,7 +241,12 @@ export default function SettingsScreen() {
         {/* ── App Info ── */}
         <View style={styles.appInfo}>
           <View style={styles.appIconBox}>
-            <PillLogo size={22} colorLeft="#9b8fff" colorRight="#4b4ba3" rotate="-20deg" />
+            <PillLogo
+              size={22}
+              colorLeft="#9b8fff"
+              colorRight="#4b4ba3"
+              rotate="-20deg"
+            />
           </View>
           <Text style={styles.appName}>MediTrack</Text>
           <Text style={styles.appVersion}>VERSION 1.0</Text>
@@ -234,7 +269,6 @@ export default function SettingsScreen() {
           style={styles.modalOverlay}
         >
           <View style={styles.modalBox}>
-
             {/* Icon */}
             <View style={styles.modalIconBox}>
               <Ionicons name="person-outline" size={28} color="#9b8fff" />
@@ -262,27 +296,44 @@ export default function SettingsScreen() {
             />
 
             <View style={styles.modalBtns}>
-              {userName ? (
-                <TouchableOpacity
-                  style={styles.modalCancelBtn}
-                  onPress={() => setNameModal(false)}
-                >
-                  <Text style={styles.modalCancelText}>Cancel</Text>
-                </TouchableOpacity>
-              ) : null}
               <TouchableOpacity
-                style={[styles.modalSaveBtn, !userName && { flex: 1 }]}
-                onPress={saveName}
-                activeOpacity={0.85}
+                style={[styles.modalSaveBtn, { flex: 1 }]}
+                onPress={() => setThemeModalVisible(false)}
               >
-                <Text style={styles.modalSaveText}>
-                  {userName ? "Save" : "Get Started"}
-                </Text>
+                <Text style={styles.modalSaveText}>Got It</Text>
               </TouchableOpacity>
             </View>
-
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={themeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setThemeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalIconBox}>
+              <Ionicons name="sunny-outline" size={28} color="#9b8fff" />
+            </View>
+
+            <Text style={styles.modalTitle}>Light Mode Coming Soon</Text>
+
+            <Text style={styles.modalSubtitle}>
+              MediTrack is currently optimized for Dark Mode. Light Mode will be
+              available in a future update.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.themeModalBtn}
+              onPress={() => setThemeModalVisible(false)}
+            >
+              <Text style={styles.modalSaveText}>Got It</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -300,16 +351,30 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
+    paddingBottom: 12,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  headerAccentBar: { width: 3, height: 22, backgroundColor: "#9b8fff", borderRadius: 2 },
-  headerBrand: { fontSize: 20, fontWeight: "700", color: "#ffffff", letterSpacing: 0.2 },
+  headerAccentBar: {
+    width: 3,
+    height: 22,
+    backgroundColor: "#9b8fff",
+    borderRadius: 2,
+  },
+  headerBrand: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#ffffff",
+    letterSpacing: 0.2,
+  },
   bellBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: "#1a1a24", alignItems: "center", justifyContent: "center",
-    borderWidth: 1, borderColor: "#2a2a38",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#1a1a24",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#2a2a38",
   },
 
   scrollContent: {
@@ -317,6 +382,12 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
 
+  screenTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#9b8fff",
+    marginBottom: 16,
+  },
   // Profile
   profileSection: {
     alignItems: "center",
@@ -390,7 +461,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 18,
     gap: 12,
   },
   settingIconBox: {
@@ -418,22 +489,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
 
-  // Time chip
-  timeChip: {
-    backgroundColor: "#222230",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "#2a2a3a",
-  },
-  timeChipText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-
-  // Privacy
+  // Privac
   privacyRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -591,9 +647,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#9b8fff",
   },
+  themeModalBtn: {
+    width: "100%",
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    backgroundColor: "#9b8fff",
+  },
   modalSaveText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "700",
+    color: "#000000",
+    fontSize: 18,
+    fontWeight: "900",
   },
 });

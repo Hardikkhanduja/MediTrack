@@ -15,6 +15,7 @@ import { scanExpiryDate } from "../data/ocr";
 import * as Haptics from "expo-haptics";
 import PillLogo from "../components/PillLogo";
 import AppModal from "../components/AppModal";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width, height } = Dimensions.get("window");
 const VIEWFINDER_W = width * 0.88;
@@ -29,6 +30,7 @@ export default function ScanScreen() {
   const [scanning, setScanning] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useFocusEffect(
     useCallback(() => {
@@ -73,14 +75,22 @@ export default function ScanScreen() {
       handleScan();
     }, 250);
   }
-  const permissionDenied = permission && !permission.granted && !permission.canAskAgain;
+  const permissionDenied =
+    permission && !permission.granted && !permission.canAskAgain;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0d0d0f" />
 
       {/* ── Header ── */}
-      <View style={styles.header}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + 12,
+          },
+        ]}
+      >
         <View style={styles.headerLeft}>
           <View style={styles.headerAccentBar} />
           <Text style={styles.headerBrand}>MediTrack</Text>
@@ -91,7 +101,10 @@ export default function ScanScreen() {
             rotate="-20deg"
           />
         </View>
-        <TouchableOpacity style={styles.bellBtn}>
+        <TouchableOpacity
+          style={styles.bellBtn}
+          onPress={() => navigation.navigate("Notifications")}
+        >
           <Ionicons name="notifications-outline" size={20} color="#aaaacc" />
         </TouchableOpacity>
       </View>
@@ -291,7 +304,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 20,
     paddingBottom: 16,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },

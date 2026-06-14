@@ -9,6 +9,7 @@ import {
 import { useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get("window");
 
@@ -17,12 +18,14 @@ const SLIDES = [
     id: "1",
     title: "Expired medicines\nare risky",
     subtitle: "You probably have some at home right now.",
-    alert: "Using outdated medication can lead to reduced efficacy or unexpected side effects.",
+    alert:
+      "Using outdated medication can lead to reduced efficacy or unexpected side effects.",
   },
   {
     id: "2",
     title: "Scan. Track. Relax.",
-    subtitle: "Just scan your medicine strip. We'll handle expiry tracking and refill alerts for you.",
+    subtitle:
+      "Just scan your medicine strip. We'll handle expiry tracking and refill alerts for you.",
   },
   {
     id: "3",
@@ -57,19 +60,38 @@ function Slide2Icon() {
   return (
     <View style={s2.wrapper}>
       <View style={s2.grid}>
-
         {/* Top Left — Medicine image card with green glow */}
         <View style={s2.imageCard}>
           <View style={s2.imageGlow} />
           <View style={s2.imageSurface}>
             <View style={s2.imagePillRow}>
               <View style={[s2.imagePill, { backgroundColor: "#4a9a6a" }]} />
-              <View style={[s2.imagePill, { backgroundColor: "#6ab88a", width: 28 }]} />
-              <View style={[s2.imagePill, { backgroundColor: "#3a7a5a", width: 20 }]} />
+              <View
+                style={[
+                  s2.imagePill,
+                  { backgroundColor: "#6ab88a", width: 28 },
+                ]}
+              />
+              <View
+                style={[
+                  s2.imagePill,
+                  { backgroundColor: "#3a7a5a", width: 20 },
+                ]}
+              />
             </View>
             <View style={s2.imagePillRow}>
-              <View style={[s2.imagePill, { backgroundColor: "#5aaa7a", width: 20 }]} />
-              <View style={[s2.imagePill, { backgroundColor: "#4a9a6a", width: 32 }]} />
+              <View
+                style={[
+                  s2.imagePill,
+                  { backgroundColor: "#5aaa7a", width: 20 },
+                ]}
+              />
+              <View
+                style={[
+                  s2.imagePill,
+                  { backgroundColor: "#4a9a6a", width: 32 },
+                ]}
+              />
             </View>
           </View>
           <View style={s2.liveRow}>
@@ -105,7 +127,6 @@ function Slide2Icon() {
           <Text style={s2.expLabel}>EXP. TRACK</Text>
           <Text style={s2.activeLabel}>Active</Text>
         </View>
-
       </View>
     </View>
   );
@@ -128,6 +149,7 @@ function Slide3Icon() {
 export default function OnboardingScreen({ navigation }) {
   const scrollRef = useRef(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const insets = useSafeAreaInsets();
 
   function handleNext() {
     if (currentIndex < SLIDES.length - 1) {
@@ -152,9 +174,16 @@ export default function OnboardingScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-
       {/* Skip */}
-      <TouchableOpacity style={styles.skip} onPress={handleSkip}>
+      <TouchableOpacity
+        style={[
+          styles.skip,
+          {
+            top: insets.top + 12,
+          },
+        ]}
+        onPress={handleSkip}
+      >
         <Text style={styles.skipText}>SKIP</Text>
       </TouchableOpacity>
 
@@ -168,7 +197,6 @@ export default function OnboardingScreen({ navigation }) {
       >
         {SLIDES.map((slide, index) => (
           <View key={slide.id} style={styles.slide}>
-
             {/* Illustration */}
             <View style={styles.illustrationArea}>
               {index === 0 && <Slide1Icon />}
@@ -178,11 +206,9 @@ export default function OnboardingScreen({ navigation }) {
 
             {/* Text */}
             <View style={styles.textContent}>
-
               {index === 1 ? (
                 <Text style={styles.slideTitle}>
-                  Scan. Track.{" "}
-                  <Text style={{ color: "#9b8fff" }}>Relax.</Text>
+                  Scan. Track. <Text style={{ color: "#9b8fff" }}>Relax.</Text>
                 </Text>
               ) : (
                 <Text style={styles.slideTitle}>{slide.title}</Text>
@@ -193,8 +219,8 @@ export default function OnboardingScreen({ navigation }) {
                   Just scan your medicine strip. We'll handle{" "}
                   <Text style={{ color: "#ffffff", fontWeight: "700" }}>
                     expiry tracking
-                  </Text>
-                  {" "}and refill alerts for you.
+                  </Text>{" "}
+                  and refill alerts for you.
                 </Text>
               ) : (
                 <Text style={styles.slideSubtitle}>{slide.subtitle}</Text>
@@ -218,14 +244,17 @@ export default function OnboardingScreen({ navigation }) {
 
               {slide.feature && (
                 <View style={styles.featureCard}>
-                  <Ionicons name="cloud-offline-outline" size={20} color="#888890" />
+                  <Ionicons
+                    name="cloud-offline-outline"
+                    size={20}
+                    color="#888890"
+                  />
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.featureTitle}>Zero Cloud</Text>
                     <Text style={styles.featureText}>{slide.feature}</Text>
                   </View>
                 </View>
               )}
-
             </View>
           </View>
         ))}
@@ -250,12 +279,9 @@ export default function OnboardingScreen({ navigation }) {
         onPress={isLast ? handleGetStarted : handleNext}
         activeOpacity={0.85}
       >
-        <Text style={styles.buttonText}>
-          {isLast ? "GET STARTED" : "NEXT"}
-        </Text>
+        <Text style={styles.buttonText}>{isLast ? "GET STARTED" : "NEXT"}</Text>
         <Ionicons name="arrow-forward" size={16} color="#ffffff" />
       </TouchableOpacity>
-
     </View>
   );
 }
@@ -523,7 +549,6 @@ const styles = StyleSheet.create({
   },
   skip: {
     position: "absolute",
-    top: 56,
     right: 24,
     zIndex: 10,
   },

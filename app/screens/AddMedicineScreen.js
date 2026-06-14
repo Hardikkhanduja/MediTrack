@@ -23,6 +23,7 @@ import * as Haptics from "expo-haptics";
 import PillLogo from "../components/PillLogo";
 import { entranceAnimation, pressAnimation } from "../motion";
 import AppModal from "../components/AppModal";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function normalizeDate(input) {
   const trimmed = input.trim();
@@ -45,6 +46,7 @@ export default function AddMedicineScreen({ navigation, route }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [errorModalVisible, setErrorModalVisible] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const [validationModal, setValidationModal] = useState({
     visible: false,
@@ -199,7 +201,14 @@ export default function AddMedicineScreen({ navigation, route }) {
       <StatusBar barStyle="light-content" backgroundColor="#0d0d0f" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + 12,
+          },
+        ]}
+      >
         <View style={styles.headerLeft}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -216,7 +225,10 @@ export default function AddMedicineScreen({ navigation, route }) {
             rotate="-20deg"
           />
         </View>
-        <TouchableOpacity style={styles.bellBtn}>
+        <TouchableOpacity
+          style={styles.bellBtn}
+          onPress={() => navigation.navigate("Notifications")}
+        >
           <Ionicons name="notifications-outline" size={20} color="#aaaacc" />
         </TouchableOpacity>
       </View>
@@ -232,6 +244,8 @@ export default function AddMedicineScreen({ navigation, route }) {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          <Text style={styles.screenTitle}>Add Medicine</Text>
+
           {/* Scan Card */}
           <View style={styles.scanCard}>
             <View style={styles.scanIconBox}>
@@ -428,8 +442,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
+    paddingBottom: 16,
   },
   headerLeft: {
     flexDirection: "row",
@@ -471,6 +484,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
+  },
+
+  screenTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#9b8fff",
+    marginBottom: 20,
   },
   scanCard: {
     backgroundColor: "#161620",

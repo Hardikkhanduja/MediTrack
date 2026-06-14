@@ -18,6 +18,7 @@ import { getMedicines, deleteMedicine } from "../data/storage";
 import { cancelMedicineAlerts } from "../data/notifications";
 import * as Haptics from "expo-haptics";
 import PillLogo from "../components/PillLogo";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   entranceAnimation,
   pressAnimation,
@@ -173,6 +174,7 @@ function CheckButton({ isTaken, onPress }) {
 
 export default function HomeScreen({ navigation }) {
   const layout = useLayout();
+  const insets = useSafeAreaInsets();
   const {
     contentPadding,
     maxContentWidth,
@@ -408,7 +410,13 @@ export default function HomeScreen({ navigation }) {
           >
             {/* Header */}
             <View
-              style={[styles.header, { paddingHorizontal: contentPadding }]}
+              style={[
+                styles.header,
+                {
+                  paddingHorizontal: contentPadding,
+                  paddingTop: insets.top + 12,
+                },
+              ]}
             >
               <View style={styles.headerLeft}>
                 <View style={styles.headerAccentBar} />
@@ -952,8 +960,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
+    paddingBottom: 12,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
   headerAccentBar: {
