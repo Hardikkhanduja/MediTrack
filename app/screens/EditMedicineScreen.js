@@ -9,14 +9,16 @@ import {
   ActivityIndicator,
   StatusBar,
   Platform,
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { updateMedicine } from "../data/storage";
 import { scheduleMedicineAlerts } from "../data/notifications";
 import * as Haptics from "expo-haptics";
 import PillLogo from "../components/PillLogo";
+import { entranceAnimation, pressAnimation } from "../motion";
 
 // Accepts multiple date formats and normalizes to YYYY-MM-DD
 function normalizeDate(input) {
@@ -44,6 +46,13 @@ export default function EditMedicineScreen({ navigation, route }) {
   const [selectedDate, setSelectedDate] = useState(
     medicine.expiry ? new Date(medicine.expiry) : new Date()
   );
+
+  const fadeAnim     = useRef(new Animated.Value(0)).current;
+  const slideAnim    = useRef(new Animated.Value(10)).current;
+  const saveBtnScale = useRef(new Animated.Value(1)).current;
+
+  // Run entrance on mount
+  useEffect(() => { entranceAnimation(fadeAnim, slideAnim).start(); }, []);
 
   async function handleCalendarPress() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -95,6 +104,7 @@ export default function EditMedicineScreen({ navigation, route }) {
       return;
     }
 
+    pressAnimation(saveBtnScale, 0.97).start();
     setLoading(true);
 
     const updatedMedicine = {
@@ -134,6 +144,9 @@ export default function EditMedicineScreen({ navigation, route }) {
         </TouchableOpacity>
       </View>
 
+      <Animated.View
+        style={[styles.screenWrapper, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}
+      >
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -220,18 +233,20 @@ export default function EditMedicineScreen({ navigation, route }) {
 
         {/* ── Save Row ── */}
         <View style={styles.saveRow}>
-          <TouchableOpacity
-            style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
-            onPress={handleUpdate}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <Text style={styles.saveBtnText}>UPDATE MEDICINE</Text>
-            )}
-          </TouchableOpacity>
+          <Animated.View style={[{ flex: 1 }, { transform: [{ scale: saveBtnScale }] }]}>
+            <TouchableOpacity
+              style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
+              onPress={handleUpdate}
+              disabled={loading}
+              activeOpacity={0.88}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.saveBtnText}>UPDATE MEDICINE</Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
           <TouchableOpacity
             style={styles.cancelBtn}
             onPress={() => navigation.goBack()}
@@ -243,6 +258,7 @@ export default function EditMedicineScreen({ navigation, route }) {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      </Animated.View>
     </View>
   );
 }
@@ -252,6 +268,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#0d0d0f",
   },
+  screenWrapper: { flex: 1 },
 
   // Header
   header: {

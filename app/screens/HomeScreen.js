@@ -8,7 +8,6 @@ import {
   Modal,
   LayoutAnimation,
   ScrollView,
-  Dimensions,
   Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,8 +18,15 @@ import { getMedicines, deleteMedicine } from "../data/storage";
 import { cancelMedicineAlerts } from "../data/notifications";
 import * as Haptics from "expo-haptics";
 import PillLogo from "../components/PillLogo";
-
-const { width } = Dimensions.get("window");
+import {
+  entranceAnimation,
+  pressAnimation,
+  configureLayoutTransition,
+  DURATION,
+  EASE,
+} from "../motion";
+import { useLayout } from "../layout";
+import { getStockStatus } from "../stock";
 
 function getStatus(expiryDate) {
   const today = new Date();
@@ -101,49 +107,25 @@ function MedicinePillIcon({ status }) {
   );
 }
 
-// Animated checkmark button — ripple effect on tap
+// Animated checkmark button — unified press spring
 function CheckButton({ isTaken, onPress }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const rippleAnim = useRef(new Animated.Value(0)).current;
 
   function handlePress() {
     if (!isTaken) {
-      // Ripple out then fade
       rippleAnim.setValue(0);
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(rippleAnim, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.sequence([
-            Animated.timing(scaleAnim, {
-              toValue: 0.85,
-              duration: 100,
-              useNativeDriver: true,
-            }),
-            Animated.spring(scaleAnim, {
-              toValue: 1,
-              friction: 3,
-              useNativeDriver: true,
-            }),
-          ]),
-        ]),
+      Animated.parallel([
+        Animated.timing(rippleAnim, {
+          toValue: 1,
+          duration: 380,
+          easing: EASE.out,
+          useNativeDriver: true,
+        }),
+        pressAnimation(scaleAnim, 0.88),
       ]).start();
     } else {
-      Animated.sequence([
-        Animated.timing(scaleAnim, {
-          toValue: 0.9,
-          duration: 80,
-          useNativeDriver: true,
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: 80,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      pressAnimation(scaleAnim, 0.92).start();
     }
     onPress();
   }
@@ -190,6 +172,19 @@ function CheckButton({ isTaken, onPress }) {
 }
 
 export default function HomeScreen({ navigation }) {
+  const layout = useLayout();
+  const {
+    contentPadding,
+    maxContentWidth,
+    urgentCardWidth,
+    useTwoColumnCards,
+    twoColCardWidth,
+    fabRight,
+    fabBottom,
+    isTablet,
+    fs,
+  } = layout;
+
   const [medicines, setMedicines] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteModalVisible, setDeleteModal] = useState(false);
@@ -197,8 +192,21 @@ export default function HomeScreen({ navigation }) {
   const [takenMap, setTakenMap] = useState({});
   const [reminderMap, setReminderMap] = useState({});
 
+  // Screen entrance
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(12)).current;
+  const fabScale = useRef(new Animated.Value(0)).current;
+  const fabOpacity = useRef(new Animated.Value(0)).current;
+
   useFocusEffect(
     useCallback(() => {
+      // Screen entrance on every focus
+      fadeAnim.setValue(0);
+      slideAnim.setValue(12);
+      fabScale.setValue(0);
+      fabOpacity.setValue(0);
+      entranceAnimation(fadeAnim, slideAnim).start();
+
       loadMedicines();
       loadTakenStatus();
     }, []),
@@ -208,13 +216,10 @@ export default function HomeScreen({ navigation }) {
     const data = await getMedicines();
 
     const reminderStatusMap = {};
-
     for (const medicine of data) {
       try {
         const stored = await AsyncStorage.getItem(`reminders_${medicine.id}`);
-
         const reminders = stored ? JSON.parse(stored) : [];
-
         reminderStatusMap[medicine.id] = reminders.length > 0;
       } catch (e) {
         reminderStatusMap[medicine.id] = false;
@@ -222,8 +227,25 @@ export default function HomeScreen({ navigation }) {
     }
 
     setReminderMap(reminderStatusMap);
-
     setMedicines(data);
+
+    // Animate FAB in after data loads
+    if (data.length > 0) {
+      Animated.parallel([
+        Animated.spring(fabScale, {
+          toValue: 1,
+          friction: 6,
+          tension: 140,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fabOpacity, {
+          toValue: 1,
+          duration: DURATION.normal,
+          easing: EASE.out,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
   }
 
   async function loadTakenStatus() {
@@ -237,17 +259,75 @@ export default function HomeScreen({ navigation }) {
 
   async function handleMarkTaken(item) {
     const isTaken = !!takenMap[item.id];
-    if (isTaken) {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const updated = { ...takenMap };
-      delete updated[item.id];
-      setTakenMap(updated);
-      await AsyncStorage.setItem(getTodayKey(), JSON.stringify(updated));
-    } else {
+
+    try {
+      if (isTaken) {
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+        const updated = { ...takenMap };
+
+        delete updated[item.id];
+
+        setTakenMap(updated);
+
+        await AsyncStorage.setItem(getTodayKey(), JSON.stringify(updated));
+
+        const currentStreak =
+          parseInt(await AsyncStorage.getItem(`streak_${item.id}`)) || 0;
+
+        await AsyncStorage.setItem(
+          `streak_${item.id}`,
+          String(Math.max(0, currentStreak - 1)),
+        );
+
+        await AsyncStorage.removeItem(`takenTime_${item.id}`);
+
+        return;
+      }
+
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const updated = { ...takenMap, [item.id]: true };
+
+      const updated = {
+        ...takenMap,
+        [item.id]: true,
+      };
+
       setTakenMap(updated);
+
       await AsyncStorage.setItem(getTodayKey(), JSON.stringify(updated));
+
+      const now = new Date();
+
+      const timeStr = now.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      await AsyncStorage.setItem(`takenTime_${item.id}`, timeStr);
+
+      const yesterday = new Date();
+
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const yKey = `taken_all_${yesterday.getFullYear()}-${
+        yesterday.getMonth() + 1
+      }-${yesterday.getDate()}`;
+
+      const yStored = await AsyncStorage.getItem(yKey);
+
+      const yMap = yStored ? JSON.parse(yStored) : {};
+
+      const takenYesterday = !!yMap[item.id];
+
+      const currentStreak =
+        parseInt(await AsyncStorage.getItem(`streak_${item.id}`)) || 0;
+
+      const newStreak = takenYesterday ? currentStreak + 1 : 1;
+
+      await AsyncStorage.setItem(`streak_${item.id}`, String(newStreak));
+    } catch (e) {
+      console.log("Error updating medicine status", e);
     }
   }
 
@@ -275,6 +355,12 @@ export default function HomeScreen({ navigation }) {
     (m) => getStatus(m.expiry).label === "SAFE",
   ).length;
 
+  // Low-stock list: non-expired medicines with quantity <= 5
+  const lowStockList = sorted.filter((m) => {
+    const expStatus = getStatus(m.expiry);
+    return expStatus.label !== "EXPIRED" && getStockStatus(m.quantity).isLow;
+  });
+
   async function handleDeletePress(item) {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setMedicineToDelete(item);
@@ -287,7 +373,7 @@ export default function HomeScreen({ navigation }) {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     await cancelMedicineAlerts(medicineToDelete.id);
     await deleteMedicine(medicineToDelete.id);
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    configureLayoutTransition();
     const updated = await getMedicines();
     setMedicines(updated);
     setMedicineToDelete(null);
@@ -299,323 +385,522 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0d0d0f" />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 110 }}
+      <Animated.View
+        style={[
+          styles.screenWrapper,
+          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+        ]}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <View style={styles.headerAccentBar} />
-            <Text style={styles.headerBrand}>MediTrack</Text>
-            <PillLogo
-              size={14}
-              colorLeft="#9b8fff"
-              colorRight="#4b4ba3"
-              rotate="-20deg"
-            />
-          </View>
-          <TouchableOpacity
-            style={styles.bellBtn}
-            onPress={() => navigation.navigate("Notifications")}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 110 }}
+        >
+          {/* Centered content container */}
+          <View
+            style={[
+              styles.contentContainer,
+              maxContentWidth && {
+                maxWidth: maxContentWidth,
+                alignSelf: "center",
+                width: "100%",
+              },
+            ]}
           >
-            <Ionicons name="notifications-outline" size={20} color="#aaaacc" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Date + Title */}
-        <View style={styles.titleSection}>
-          <Text style={styles.dateText}>{getFormattedDate()}</Text>
-          <Text style={styles.mainTitle}>{getDailyGreeting()}</Text>
-        </View>
-
-        {/* Search Bar */}
-        <View style={styles.searchBar}>
-          <Ionicons
-            name="search-outline"
-            size={16}
-            color="#555568"
-            style={{ marginRight: 8 }}
-          />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search your medicines..."
-            placeholderTextColor="#555568"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={16} color="#555568" />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Empty State */}
-        {isEmpty && (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyCardWrapper}>
-              <View style={styles.emptyCard}>
-                <View style={styles.emptyCardGlow} />
-                <View style={styles.emptyPillCircle}>
-                  <PillLogo
-                    size={28}
-                    colorLeft="#9b8fff"
-                    colorRight="#4b4ba3"
-                    rotate="-20deg"
-                  />
-                </View>
+            {/* Header */}
+            <View
+              style={[styles.header, { paddingHorizontal: contentPadding }]}
+            >
+              <View style={styles.headerLeft}>
+                <View style={styles.headerAccentBar} />
+                <Text style={[styles.headerBrand, { fontSize: fs(20, 22) }]}>
+                  MediTrack
+                </Text>
+                <PillLogo
+                  size={14}
+                  colorLeft="#9b8fff"
+                  colorRight="#4b4ba3"
+                  rotate="-20deg"
+                />
               </View>
               <TouchableOpacity
-                style={styles.emptyBadgeTR}
-                onPress={() => navigation.navigate("AddMedicine")}
-                activeOpacity={0.8}
+                style={styles.bellBtn}
+                onPress={() => navigation.navigate("Notifications")}
               >
-                <Ionicons name="medkit-outline" size={18} color="#d4780a" />
+                <Ionicons
+                  name="notifications-outline"
+                  size={20}
+                  color="#aaaacc"
+                />
               </TouchableOpacity>
-              <View style={styles.emptyBadgeBL}>
-                <Ionicons name="person-outline" size={16} color="#d4780a" />
-              </View>
             </View>
-            <Text style={styles.emptyTitle}>No medicines added yet</Text>
-            <Text style={styles.emptySubText}>
-              Scan your first medicine to begin tracking your prescriptions and
-              health metrics effortlessly.
-            </Text>
-            <TouchableOpacity
-              style={styles.scanCTA}
-              onPress={() => navigation.navigate("AddMedicine")}
-              activeOpacity={0.85}
+
+            {/* Date + Title */}
+            <View
+              style={[
+                styles.titleSection,
+                { paddingHorizontal: contentPadding },
+              ]}
+            >
+              <Text style={styles.dateText}>{getFormattedDate()}</Text>
+              <Text style={[styles.mainTitle, { fontSize: fs(28, 32) }]}>
+                {getDailyGreeting()}
+              </Text>
+            </View>
+
+            {/* Search Bar */}
+            <View
+              style={[styles.searchBar, { marginHorizontal: contentPadding }]}
             >
               <Ionicons
-                name="scan-outline"
+                name="search-outline"
                 size={16}
-                color="#fff"
+                color="#555568"
                 style={{ marginRight: 8 }}
               />
-              <Text style={styles.scanCTAText}>Scan Medicine</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => navigation.navigate("AddMedicine")}
-            >
-              <Text style={styles.addManuallyText}>ADD MANUALLY</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {!isEmpty && (
-          <>
-            {/* Expiring Soon */}
-            {soonList.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Ionicons name="warning-outline" size={15} color="#c9940a" />
-                  <Text style={styles.soonTitle}>
-                    Expiring Soon ({soonList.length})
-                  </Text>
-                </View>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.horizontalScroll}
-                >
-                  {soonList.map((item) => {
-                    const status = getStatus(item.expiry);
-                    return (
-                      <View key={item.id} style={styles.urgentCard}>
-                        <View style={styles.urgentAccent} />
-                        <View style={styles.urgentBody}>
-                          <View style={styles.urgentTop}>
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.urgentName}>{item.name}</Text>
-                              <Text style={styles.urgentDays}>
-                                Expires in {status.days} days
-                              </Text>
-                            </View>
-                            <View style={styles.urgentPillWrapper}>
-                              <PillLogo
-                                size={14}
-                                colorLeft="#555570"
-                                colorRight="#333348"
-                                rotate="-35deg"
-                              />
-                            </View>
-                          </View>
-                          <TouchableOpacity
-                            style={styles.useFirstBtn}
-                            onPress={() =>
-                              navigation.navigate("MedicineDetail", {
-                                medicine: item,
-                                isTaken: !!takenMap[item.id],
-                              })
-                            }
-                            activeOpacity={0.75}
-                          >
-                            <Text style={styles.useFirstText}>Use First</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            )}
-
-            {/* Expired Banner */}
-            {expiredCount > 0 && (
-              <TouchableOpacity
-                style={styles.expiredBanner}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="warning-outline" size={15} color="#e05555" />
-                <View style={{ marginLeft: 10 }}>
-                  <Text style={styles.expiredBannerTitle}>
-                    {expiredCount} Medicine{expiredCount > 1 ? "s" : ""} are
-                    EXPIRED!
-                  </Text>
-                  <Text style={styles.expiredBannerSub}>
-                    Tap to Review & Remove
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {/* Stats Row */}
-            <View style={styles.statsRow}>
-              <View style={styles.statBox}>
-                <View
-                  style={[styles.statTopLine, { backgroundColor: "#e05555" }]}
-                />
-                <Text style={styles.statLabel}>EXPIRED</Text>
-                <Text style={[styles.statNumber, { color: "#e05555" }]}>
-                  {String(expiredCount).padStart(2, "0")}
-                </Text>
-              </View>
-              <View style={styles.statBox}>
-                <View
-                  style={[styles.statTopLine, { backgroundColor: "#c9940a" }]}
-                />
-                <Text style={styles.statLabel}>SOON</Text>
-                <Text style={[styles.statNumber, { color: "#c9940a" }]}>
-                  {String(soonCount).padStart(2, "0")}
-                </Text>
-              </View>
-              <View style={styles.statBox}>
-                <View
-                  style={[styles.statTopLine, { backgroundColor: "#2ea86e" }]}
-                />
-                <Text style={styles.statLabel}>SAFE</Text>
-                <Text style={[styles.statNumber, { color: "#2ea86e" }]}>
-                  {String(safeCount).padStart(2, "0")}
-                </Text>
-              </View>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search your medicines..."
+                placeholderTextColor="#555568"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery("")}>
+                  <Ionicons name="close-circle" size={16} color="#555568" />
+                </TouchableOpacity>
+              )}
             </View>
 
-            {/* All Medications */}
-            <View style={styles.section}>
-              <View style={styles.allMedsHeader}>
-                <Text style={styles.allMedsTitle}>All Medications</Text>
+            {/* Empty State */}
+            {isEmpty && (
+              <View
+                style={[
+                  styles.emptyState,
+                  isTablet && { paddingHorizontal: 60 },
+                ]}
+              >
+                <View style={styles.emptyCardWrapper}>
+                  <View style={styles.emptyCard}>
+                    <View style={styles.emptyCardGlow} />
+                    <View style={styles.emptyPillCircle}>
+                      <PillLogo
+                        size={28}
+                        colorLeft="#9b8fff"
+                        colorRight="#4b4ba3"
+                        rotate="-20deg"
+                      />
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.emptyBadgeTR}
+                    onPress={() => navigation.navigate("AddMedicine")}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="medkit-outline" size={18} color="#d4780a" />
+                  </TouchableOpacity>
+                  <View style={styles.emptyBadgeBL}>
+                    <Ionicons name="person-outline" size={16} color="#d4780a" />
+                  </View>
+                </View>
+                <Text style={styles.emptyTitle}>No medicines added yet</Text>
+                <Text style={styles.emptySubText}>
+                  Scan your first medicine to begin tracking your prescriptions
+                  and health metrics effortlessly.
+                </Text>
                 <TouchableOpacity
-                  onPress={() => navigation.navigate("Medication")}
+                  style={styles.scanCTA}
+                  onPress={() => navigation.navigate("AddMedicine")}
+                  activeOpacity={0.85}
                 >
-                  <Ionicons name="arrow-forward" size={20} color="#555568" />
+                  <Ionicons
+                    name="scan-outline"
+                    size={16}
+                    color="#fff"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.scanCTAText}>Scan Medicine</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate("AddMedicine")}
+                >
+                  <Text style={styles.addManuallyText}>ADD MANUALLY</Text>
                 </TouchableOpacity>
               </View>
+            )}
 
-              {filtered.length === 0 && (
-                <View style={styles.noResults}>
-                  <Ionicons
-                    name="search-outline"
-                    size={36}
-                    color="#222230"
-                    style={{ marginBottom: 10 }}
-                  />
-                  <Text style={styles.emptyTitle}>No results found</Text>
-                  <Text style={styles.emptySubText}>
-                    Try a different medicine name
-                  </Text>
-                </View>
-              )}
-
-              {filtered.map((item) => {
-                const status = getStatus(item.expiry);
-                const isTaken = !!takenMap[item.id];
-
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[
-                      styles.medicineCard,
-                      isTaken && styles.medicineCardTaken,
-                    ]}
-                    onPress={() =>
-                      navigation.navigate("MedicineDetail", {
-                        medicine: item,
-                        isTaken: !!takenMap[item.id],
-                      })
-                    }
-                    onLongPress={() => handleDeletePress(item)}
-                    activeOpacity={0.75}
-                  >
-                    {/* Pill icon — dimmed when taken */}
-                    <View style={{ opacity: isTaken ? 0.45 : 1 }}>
-                      <MedicinePillIcon status={status} />
-                    </View>
-
-                    {/* Info */}
-                    <View style={styles.cardInfo}>
-                      <Text
-                        style={[
-                          styles.cardName,
-                          isTaken && styles.cardNameTaken,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {item.name}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.cardSub,
-                          isTaken && styles.cardSubTaken,
-                          !reminderMap[item.id] && styles.expiryOnlyText,
-                        ]}
-                      >
-                        {reminderMap[item.id]
-                          ? isTaken
-                            ? "✓  Taken today"
-                            : `${item.quantity} units left`
-                          : "Expiry monitored"}
-                      </Text>
-                    </View>
-
-                    {reminderMap[item.id] ? (
-                      <CheckButton
-                        isTaken={isTaken}
-                        onPress={() => handleMarkTaken(item)}
+            {!isEmpty && (
+              <>
+                {/* Expiring Soon */}
+                {soonList.length > 0 && (
+                  <View style={styles.section}>
+                    <View
+                      style={[
+                        styles.sectionHeader,
+                        { paddingHorizontal: contentPadding },
+                      ]}
+                    >
+                      <Ionicons
+                        name="warning-outline"
+                        size={15}
+                        color="#c9940a"
                       />
-                    ) : (
-                      <View style={styles.passiveChip}>
-                        <Text style={styles.passiveChipText}>TRACKED</Text>
-                      </View>
-                    )}
+                      <Text style={styles.soonTitle}>
+                        Expiring Soon ({soonList.length})
+                      </Text>
+                    </View>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={[
+                        styles.horizontalScroll,
+                        { paddingHorizontal: contentPadding },
+                      ]}
+                    >
+                      {soonList.map((item) => {
+                        const status = getStatus(item.expiry);
+                        return (
+                          <View
+                            key={item.id}
+                            style={[
+                              styles.urgentCard,
+                              { width: urgentCardWidth },
+                            ]}
+                          >
+                            <View style={styles.urgentAccent} />
+                            <View style={styles.urgentBody}>
+                              <View style={styles.urgentTop}>
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.urgentName}>
+                                    {item.name}
+                                  </Text>
+                                  <Text style={styles.urgentDays}>
+                                    Expires in {status.days} days
+                                  </Text>
+                                </View>
+                                <View style={styles.urgentPillWrapper}>
+                                  <PillLogo
+                                    size={14}
+                                    colorLeft="#555570"
+                                    colorRight="#333348"
+                                    rotate="-35deg"
+                                  />
+                                </View>
+                              </View>
+                              <TouchableOpacity
+                                style={styles.useFirstBtn}
+                                onPress={() =>
+                                  navigation.navigate("MedicineDetail", {
+                                    medicine: item,
+                                    isTaken: !!takenMap[item.id],
+                                  })
+                                }
+                                activeOpacity={0.75}
+                              >
+                                <Text style={styles.useFirstText}>
+                                  Use First
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {/* Expired Banner */}
+                {expiredCount > 0 && (
+                  <TouchableOpacity
+                    style={[
+                      styles.expiredBanner,
+                      { marginHorizontal: contentPadding },
+                    ]}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name="warning-outline"
+                      size={15}
+                      color="#e05555"
+                    />
+                    <View style={{ marginLeft: 10 }}>
+                      <Text style={styles.expiredBannerTitle}>
+                        {expiredCount} Medicine{expiredCount > 1 ? "s" : ""} are
+                        EXPIRED!
+                      </Text>
+                      <Text style={styles.expiredBannerSub}>
+                        Tap to Review & Remove
+                      </Text>
+                    </View>
                   </TouchableOpacity>
-                );
-              })}
-            </View>
-          </>
-        )}
-      </ScrollView>
+                )}
+
+                {/* Stats Row */}
+                <View
+                  style={[
+                    styles.statsRow,
+                    { paddingHorizontal: contentPadding },
+                  ]}
+                >
+                  <View style={styles.statBox}>
+                    <View
+                      style={[
+                        styles.statTopLine,
+                        { backgroundColor: "#e05555" },
+                      ]}
+                    />
+                    <Text style={styles.statLabel}>EXPIRED</Text>
+                    <Text style={[styles.statNumber, { color: "#e05555" }]}>
+                      {String(expiredCount).padStart(2, "0")}
+                    </Text>
+                  </View>
+                  <View style={styles.statBox}>
+                    <View
+                      style={[
+                        styles.statTopLine,
+                        { backgroundColor: "#c9940a" },
+                      ]}
+                    />
+                    <Text style={styles.statLabel}>SOON</Text>
+                    <Text style={[styles.statNumber, { color: "#c9940a" }]}>
+                      {String(soonCount).padStart(2, "0")}
+                    </Text>
+                  </View>
+                  <View style={styles.statBox}>
+                    <View
+                      style={[
+                        styles.statTopLine,
+                        { backgroundColor: "#2ea86e" },
+                      ]}
+                    />
+                    <Text style={styles.statLabel}>SAFE</Text>
+                    <Text style={[styles.statNumber, { color: "#2ea86e" }]}>
+                      {String(safeCount).padStart(2, "0")}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Running Low — only renders when exceptions exist */}
+                {lowStockList.length > 0 && (
+                  <View
+                    style={[
+                      styles.lowStockSection,
+                      { marginHorizontal: contentPadding },
+                    ]}
+                  >
+                    <View style={styles.lowStockHeader}>
+                      <Ionicons name="cube-outline" size={13} color="#7a6030" />
+                      <Text style={styles.lowStockTitle}>Running Low</Text>
+                    </View>
+                    {lowStockList.map((item) => {
+                      const stock = getStockStatus(item.quantity);
+                      return (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={styles.lowStockRow}
+                          onPress={() =>
+                            navigation.navigate("MedicineDetail", {
+                              medicine: item,
+                              isTaken: !!takenMap[item.id],
+                            })
+                          }
+                          activeOpacity={0.75}
+                        >
+                          <Text style={styles.lowStockName} numberOfLines={1}>
+                            {item.name}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.lowStockMeta,
+                              { color: stock.color },
+                            ]}
+                          >
+                            {item.quantity} left
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {/* All Medications */}
+                <View style={styles.section}>
+                  <View
+                    style={[
+                      styles.allMedsHeader,
+                      { paddingHorizontal: contentPadding },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.allMedsTitle, { fontSize: fs(20, 22) }]}
+                    >
+                      All Medications
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => navigation.navigate("Medication")}
+                    >
+                      <Ionicons
+                        name="arrow-forward"
+                        size={20}
+                        color="#555568"
+                      />
+                    </TouchableOpacity>
+                  </View>
+
+                  {filtered.length === 0 && (
+                    <View style={styles.noResults}>
+                      <Ionicons
+                        name="search-outline"
+                        size={36}
+                        color="#222230"
+                        style={{ marginBottom: 10 }}
+                      />
+                      <Text style={styles.emptyTitle}>No results found</Text>
+                      <Text style={styles.emptySubText}>
+                        Try a different medicine name
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Two-column on tablets, single-column on phones */}
+                  <View
+                    style={[
+                      useTwoColumnCards && {
+                        flexDirection: "row",
+                        flexWrap: "wrap",
+                        paddingHorizontal: contentPadding,
+                        gap: 12,
+                      },
+                    ]}
+                  >
+                    {filtered.map((item) => {
+                      const status = getStatus(item.expiry);
+                      const isTaken = !!takenMap[item.id];
+
+                      return (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={[
+                            styles.medicineCard,
+                            isTaken && styles.medicineCardTaken,
+                            useTwoColumnCards && {
+                              width: twoColCardWidth,
+                              borderRadius: 12,
+                              borderWidth: 1,
+                              borderColor: "#1a1a2a",
+                              borderBottomWidth: 1,
+                              paddingHorizontal: 14,
+                            },
+                          ]}
+                          onPress={() =>
+                            navigation.navigate("MedicineDetail", {
+                              medicine: item,
+                              isTaken: !!takenMap[item.id],
+                            })
+                          }
+                          onLongPress={() => handleDeletePress(item)}
+                          activeOpacity={0.75}
+                        >
+                          <View style={{ opacity: isTaken ? 0.45 : 1 }}>
+                            <MedicinePillIcon status={status} />
+                          </View>
+                          <View style={styles.cardInfo}>
+                            <Text
+                              style={[
+                                styles.cardName,
+                                isTaken && styles.cardNameTaken,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {item.name}
+                            </Text>
+                            {(() => {
+                              // Sub-text logic: taken > stock exception > healthy default
+                              if (isTaken) {
+                                return (
+                                  <Text
+                                    style={[
+                                      styles.cardSub,
+                                      styles.cardSubTaken,
+                                    ]}
+                                  >
+                                    ✓ Taken today
+                                  </Text>
+                                );
+                              }
+                              if (!reminderMap[item.id]) {
+                                return (
+                                  <Text
+                                    style={[
+                                      styles.cardSub,
+                                      styles.expiryOnlyText,
+                                    ]}
+                                  >
+                                    Expiry monitored
+                                  </Text>
+                                );
+                              }
+                              const stock = getStockStatus(item.quantity);
+                              if (stock.isLow) {
+                                return (
+                                  <Text
+                                    style={[
+                                      styles.cardSub,
+                                      { color: stock.color },
+                                    ]}
+                                  >
+                                    {stock.label}
+                                  </Text>
+                                );
+                              }
+                              return (
+                                <Text style={styles.cardSub}>
+                                  {item.quantity} units left
+                                </Text>
+                              );
+                            })()}
+                          </View>
+                          {reminderMap[item.id] ? (
+                            <CheckButton
+                              isTaken={isTaken}
+                              onPress={() => handleMarkTaken(item)}
+                            />
+                          ) : (
+                            <View style={styles.passiveChip}>
+                              <Text style={styles.passiveChipText}>
+                                TRACKED
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              </>
+            )}
+          </View>
+          {/* end contentContainer */}
+        </ScrollView>
+      </Animated.View>
 
       {/* Floating Add Button */}
       {!isEmpty && (
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => navigation.navigate("AddMedicine")}
-          activeOpacity={0.85}
+        <Animated.View
+          style={[
+            styles.fabWrapper,
+            { bottom: fabBottom, right: fabRight },
+            { opacity: fabOpacity, transform: [{ scale: fabScale }] },
+          ]}
         >
-          <Ionicons name="add" size={28} color="#ffffff" />
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={() => navigation.navigate("AddMedicine")}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="add" size={28} color="#ffffff" />
+          </TouchableOpacity>
+        </Animated.View>
       )}
 
       {/* Delete Modal */}
@@ -626,7 +911,12 @@ export default function HomeScreen({ navigation }) {
         onRequestClose={() => setDeleteModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
+          <View
+            style={[
+              styles.modalBox,
+              isTablet && { maxWidth: 420, width: "60%" },
+            ]}
+          >
             <Text style={styles.modalText}>
               Are you sure you want to remove the medicine?
             </Text>
@@ -653,6 +943,9 @@ export default function HomeScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0d0d0f" },
+  screenWrapper: { flex: 1 },
+  // Centered content wrapper — maxWidth applied inline from layout hook
+  contentContainer: { flex: 1 },
 
   header: {
     flexDirection: "row",
@@ -825,7 +1118,7 @@ const styles = StyleSheet.create({
 
   horizontalScroll: { paddingHorizontal: 20, gap: 12 },
   urgentCard: {
-    width: width * 0.58,
+    // width applied inline from layout.urgentCardWidth
     backgroundColor: "#161620",
     borderRadius: 16,
     borderWidth: 1,
@@ -959,9 +1252,6 @@ const styles = StyleSheet.create({
   },
 
   fab: {
-    position: "absolute",
-    bottom: 100,
-    right: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -974,7 +1264,52 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
+  fabWrapper: {
+    position: "absolute",
+    bottom: 100,
+    right: 20,
+  },
   noResults: { alignItems: "center", paddingVertical: 32 },
+
+  // Running Low section
+  lowStockSection: {
+    backgroundColor: "#111108",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#2a2010",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 20,
+  },
+  lowStockHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  lowStockTitle: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#7a6030",
+    letterSpacing: 1,
+  },
+  lowStockRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 5,
+  },
+  lowStockName: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#aaaabc",
+    flex: 1,
+    marginRight: 12,
+  },
+  lowStockMeta: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
 
   modalOverlay: {
     flex: 1,
@@ -1028,10 +1363,10 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
- expiryOnlyText: {
-  color: "#7a7a92",
-  fontWeight: "500",
-},
+  expiryOnlyText: {
+    color: "#7a7a92",
+    fontWeight: "500",
+  },
 
   passiveChip: {
     paddingHorizontal: 11,

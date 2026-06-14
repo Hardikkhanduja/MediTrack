@@ -4,7 +4,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   StatusBar,
-  Alert,
   ActivityIndicator,
   Dimensions,
 } from "react-native";
@@ -15,14 +14,16 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { scanExpiryDate } from "../data/ocr";
 import * as Haptics from "expo-haptics";
 import PillLogo from "../components/PillLogo";
+import AppModal from "../components/AppModal";
 
 const { width, height } = Dimensions.get("window");
 const VIEWFINDER_W = width * 0.88;
-const VIEWFINDER_H = VIEWFINDER_W * 0.60;
+const VIEWFINDER_H = VIEWFINDER_W * 0.6;
 const CORNER = 24;
 const THICKNESS = 3;
 
 export default function ScanScreen() {
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
   const navigation = useNavigation();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(false);
@@ -34,7 +35,7 @@ export default function ScanScreen() {
       setCameraActive(true);
       if (permission && !permission.granted) requestPermission();
       return () => setCameraActive(false);
-    }, [permission])
+    }, [permission]),
   );
 
   async function handleScan() {
@@ -45,22 +46,33 @@ export default function ScanScreen() {
     setScanning(false);
     if (result.canceled) return;
     if (result.error) {
-      Alert.alert("Scan Failed", `${result.error}\n\nTry again or add manually.`, [
-        { text: "Add Manually", onPress: () => navigation.navigate("AddMedicine") },
-        { text: "Try Again", style: "cancel" },
-      ]);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setErrorModalVisible(true);
+
       return;
     }
+
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     navigation.navigate("AddMedicine", {
       prefill: {
-        name:     result.name     || "",
-        expiry:   result.date     || "",
+        name: result.name || "",
+        expiry: result.date || "",
         quantity: result.quantity ? result.quantity.toString() : "",
       },
     });
   }
 
+  async function retryScan() {
+    if (scanning) return;
+
+    setErrorModalVisible(false);
+
+    setTimeout(async () => {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      handleScan();
+    }, 250);
+  }
   const permissionDenied = permission && !permission.granted && !permission.canAskAgain;
 
   return (
@@ -72,7 +84,12 @@ export default function ScanScreen() {
         <View style={styles.headerLeft}>
           <View style={styles.headerAccentBar} />
           <Text style={styles.headerBrand}>MediTrack</Text>
-          <PillLogo size={14} colorLeft="#9b8fff" colorRight="#4b4ba3" rotate="-20deg" />
+          <PillLogo
+            size={14}
+            colorLeft="#9b8fff"
+            colorRight="#4b4ba3"
+            rotate="-20deg"
+          />
         </View>
         <TouchableOpacity style={styles.bellBtn}>
           <Ionicons name="notifications-outline" size={20} color="#aaaacc" />
@@ -81,7 +98,6 @@ export default function ScanScreen() {
 
       {/* ── Viewfinder ── */}
       <View style={styles.viewfinderSection}>
-
         {/* Glow layers — stacked Views simulate Android glow */}
         <View style={styles.glow3} />
         <View style={styles.glow2} />
@@ -118,23 +134,79 @@ export default function ScanScreen() {
           {/* ── Corner brackets ── */}
           {/* Top-left */}
           <View style={[styles.corner, styles.cornerTL]}>
-            <View style={[styles.bH, { borderTopWidth: THICKNESS, borderTopColor: "#9b8fff" }]} />
-            <View style={[styles.bV, { borderLeftWidth: THICKNESS, borderLeftColor: "#9b8fff" }]} />
+            <View
+              style={[
+                styles.bH,
+                { borderTopWidth: THICKNESS, borderTopColor: "#9b8fff" },
+              ]}
+            />
+            <View
+              style={[
+                styles.bV,
+                { borderLeftWidth: THICKNESS, borderLeftColor: "#9b8fff" },
+              ]}
+            />
           </View>
           {/* Top-right */}
           <View style={[styles.corner, styles.cornerTR]}>
-            <View style={[styles.bH, { borderTopWidth: THICKNESS, borderTopColor: "#9b8fff", alignSelf: "flex-end" }]} />
-            <View style={[styles.bV, { borderRightWidth: THICKNESS, borderRightColor: "#9b8fff", alignSelf: "flex-end" }]} />
+            <View
+              style={[
+                styles.bH,
+                {
+                  borderTopWidth: THICKNESS,
+                  borderTopColor: "#9b8fff",
+                  alignSelf: "flex-end",
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.bV,
+                {
+                  borderRightWidth: THICKNESS,
+                  borderRightColor: "#9b8fff",
+                  alignSelf: "flex-end",
+                },
+              ]}
+            />
           </View>
           {/* Bottom-left */}
           <View style={[styles.corner, styles.cornerBL]}>
-            <View style={[styles.bV, { borderLeftWidth: THICKNESS, borderLeftColor: "#9b8fff" }]} />
-            <View style={[styles.bH, { borderBottomWidth: THICKNESS, borderBottomColor: "#9b8fff" }]} />
+            <View
+              style={[
+                styles.bV,
+                { borderLeftWidth: THICKNESS, borderLeftColor: "#9b8fff" },
+              ]}
+            />
+            <View
+              style={[
+                styles.bH,
+                { borderBottomWidth: THICKNESS, borderBottomColor: "#9b8fff" },
+              ]}
+            />
           </View>
           {/* Bottom-right */}
           <View style={[styles.corner, styles.cornerBR]}>
-            <View style={[styles.bV, { borderRightWidth: THICKNESS, borderRightColor: "#9b8fff", alignSelf: "flex-end" }]} />
-            <View style={[styles.bH, { borderBottomWidth: THICKNESS, borderBottomColor: "#9b8fff", alignSelf: "flex-end" }]} />
+            <View
+              style={[
+                styles.bV,
+                {
+                  borderRightWidth: THICKNESS,
+                  borderRightColor: "#9b8fff",
+                  alignSelf: "flex-end",
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.bH,
+                {
+                  borderBottomWidth: THICKNESS,
+                  borderBottomColor: "#9b8fff",
+                  alignSelf: "flex-end",
+                },
+              ]}
+            />
           </View>
         </View>
       </View>
@@ -168,10 +240,11 @@ export default function ScanScreen() {
             disabled={scanning}
             activeOpacity={0.85}
           >
-            {scanning
-              ? <ActivityIndicator size="small" color="#ffffff" />
-              : <View style={styles.captureInner} />
-            }
+            {scanning ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <View style={styles.captureInner} />
+            )}
           </TouchableOpacity>
           <Text style={styles.controlLabel}>SCAN</Text>
         </View>
@@ -188,7 +261,20 @@ export default function ScanScreen() {
           <Text style={styles.controlLabel}>CANCEL</Text>
         </View>
       </View>
-
+      <AppModal
+        visible={errorModalVisible}
+        type="error"
+        title="Unable to Complete Scan"
+        message="We couldn't analyze the medicine image at the moment. Please try again later or enter the medicine details manually."
+        primaryText="Retry"
+        secondaryText="Add Manually"
+        onPrimary={retryScan}
+        onSecondary={() => {
+          setErrorModalVisible(false);
+          navigation.navigate("AddMedicine");
+        }}
+        onClose={() => setErrorModalVisible(false)}
+      />
     </View>
   );
 }
@@ -209,12 +295,27 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
-  headerAccentBar: { width: 3, height: 22, backgroundColor: "#9b8fff", borderRadius: 2 },
-  headerBrand: { fontSize: 20, fontWeight: "700", color: "#ffffff", letterSpacing: 0.2 },
+  headerAccentBar: {
+    width: 3,
+    height: 22,
+    backgroundColor: "#9b8fff",
+    borderRadius: 2,
+  },
+  headerBrand: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#ffffff",
+    letterSpacing: 0.2,
+  },
   bellBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: "#1a1a24", alignItems: "center", justifyContent: "center",
-    borderWidth: 1, borderColor: "#2a2a38",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#1a1a24",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#2a2a38",
   },
 
   // Viewfinder section with glow
@@ -287,10 +388,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 12,
   },
-  scanOverlayText: { fontSize: 13, color: "#9b8fff", fontWeight: "600", letterSpacing: 1 },
+  scanOverlayText: {
+    fontSize: 13,
+    color: "#9b8fff",
+    fontWeight: "600",
+    letterSpacing: 1,
+  },
 
   // Corner brackets
-  corner: { position: "absolute", },
+  corner: { position: "absolute" },
   cornerTL: { top: -2, left: -2 },
   cornerTR: { top: -2, right: -2 },
   cornerBL: { bottom: -2, left: -2 },
@@ -325,29 +431,42 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   sideBtn: {
-    width: 54, height: 54, borderRadius: 27,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: "#1a1a24",
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 1, borderColor: "#2a2a38",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#2a2a38",
   },
   sideBtnActive: {
     borderColor: "#9b8fff",
     backgroundColor: "#1e1a30",
   },
   captureBtn: {
-    width: 72, height: 72, borderRadius: 36,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: "#9b8fff",
-    alignItems: "center", justifyContent: "center",
-    borderWidth: 4, borderColor: "#c4baff33",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 4,
+    borderColor: "#c4baff33",
     elevation: 10,
   },
   captureInner: {
-    width: 28, height: 28, borderRadius: 14,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: "rgba(255,255,255,0.2)",
   },
   cancelBtn: {
-    width: 54, height: 54, borderRadius: 27,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     backgroundColor: "#aa2222",
-    alignItems: "center", justifyContent: "center",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

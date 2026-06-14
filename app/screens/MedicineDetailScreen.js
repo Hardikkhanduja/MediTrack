@@ -17,6 +17,16 @@ import * as Haptics from "expo-haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import PillLogo from "../components/PillLogo";
+import {
+  entranceAnimation,
+  pressAnimation,
+  configureLayoutTransition,
+  DURATION,
+  EASE,
+  SPRING_RELEASE,
+} from "../motion";
+import { useLayout } from "../layout";
+import { getStockStatus } from "../stock";
 
 function getStatus(expiryDate) {
   const today = new Date();
@@ -51,6 +61,11 @@ function formatTime(date) {
 export default function MedicineDetailScreen({ route, navigation }) {
   const { medicine } = route.params;
   const status = getStatus(medicine.expiry);
+  const isExpired = status.label === "EXPIRED";
+  const stockStatus = getStockStatus(medicine.quantity);
+  const layout = useLayout();
+  const { contentPadding, maxContentWidth, useDetailSideBySide, isTablet, fs } =
+    layout;
 
   const [reminders, setReminders] = useState([]);
   const [showPicker, setShowPicker] = useState(false);
@@ -65,6 +80,10 @@ export default function MedicineDetailScreen({ route, navigation }) {
   // Animation
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(10)).current;
+  // Taken pill opacity cross-fade
+  const takenOpacity = useRef(new Animated.Value(0)).current;
 
   const [modalConfig, setModalConfig] = useState({
     visible: false,
@@ -76,6 +95,8 @@ export default function MedicineDetailScreen({ route, navigation }) {
     onConfirm: null,
     confirmText: "Yes",
   });
+
+  const [weekHistory, setWeekHistory] = useState([]);
 
   function closeCustomModal() {
     setModalConfig((prev) => ({ ...prev, visible: false }));
@@ -92,6 +113,36 @@ export default function MedicineDetailScreen({ route, navigation }) {
     });
   }
 
+  async function loadWeekHistory() {
+    try {
+      const history = [];
+
+      const today = new Date();
+
+      for (let i = 6; i >= 0; i--) {
+        const checkDate = new Date(today);
+
+        checkDate.setDate(today.getDate() - i);
+
+        const key = `taken_all_${checkDate.getFullYear()}-${
+          checkDate.getMonth() + 1
+        }-${checkDate.getDate()}`;
+
+        const stored = await AsyncStorage.getItem(key);
+
+        const map = stored ? JSON.parse(stored) : {};
+
+        history.push({
+          date: new Date(checkDate),
+          taken: !!map[medicine.id],
+        });
+      }
+
+      setWeekHistory(history);
+    } catch (e) {
+      console.log("Error loading week history", e);
+    }
+  }
   function showConfirmModal(
     title,
     message,
@@ -117,8 +168,17 @@ export default function MedicineDetailScreen({ route, navigation }) {
 
   useFocusEffect(
     useCallback(() => {
+      // Reset + run screen entrance
+      fadeAnim.setValue(0);
+      slideAnim.setValue(10);
+      entranceAnimation(fadeAnim, slideAnim).start();
+
       loadReminders();
       loadTakenStatus();
+      loadWeekHistory();
+
+      takenOpacity.setValue(0);
+
       startGlowAnimation();
     }, []),
   );
@@ -143,25 +203,21 @@ export default function MedicineDetailScreen({ route, navigation }) {
   async function loadTakenStatus() {
     try {
       const stored = await AsyncStorage.getItem(getTodayKey());
-
       const takenMap = stored ? JSON.parse(stored) : {};
-
       const streakData = await AsyncStorage.getItem(`streak_${medicine.id}`);
-
       const timeData = await AsyncStorage.getItem(`takenTime_${medicine.id}`);
-
       const isTaken = !!takenMap[medicine.id];
 
       setTakenToday(isTaken);
+      // Sync opacity to loaded state without animating
+      takenOpacity.setValue(isTaken ? 1 : 0.65);
 
-      if (timeData) {
-        setTakenTime(timeData);
-      } else {
-        setTakenTime(null);
-      }
-
+      if (timeData) setTakenTime(timeData);
+      else setTakenTime(null);
       if (streakData) {
         setStreak(parseInt(streakData));
+      } else {
+        setStreak(0);
       }
     } catch (e) {
       console.log("Error loading taken status", e);
@@ -169,6 +225,7 @@ export default function MedicineDetailScreen({ route, navigation }) {
   }
 
   async function handleMarkAsTaken() {
+    if (isExpired) return;
     try {
       const stored = await AsyncStorage.getItem(getTodayKey());
 
@@ -177,37 +234,32 @@ export default function MedicineDetailScreen({ route, navigation }) {
       // UNMARK
       if (takenToday) {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        pressAnimation(scaleAnim, 0.97).start();
 
         delete takenMap[medicine.id];
-
         await AsyncStorage.setItem(getTodayKey(), JSON.stringify(takenMap));
 
         const newStreak = Math.max(0, streak - 1);
-
         await AsyncStorage.setItem(`streak_${medicine.id}`, String(newStreak));
-
         await AsyncStorage.removeItem(`takenTime_${medicine.id}`);
 
-        setStreak(newStreak);
-        setTakenToday(false);
-        setTakenTime(null);
-
+        // Fade out to pending opacity
+        Animated.timing(takenOpacity, {
+          toValue: 0.65,
+          duration: DURATION.fast,
+          easing: EASE.out,
+          useNativeDriver: true,
+        }).start(() => {
+          setStreak(newStreak);
+          setTakenToday(false);
+          setTakenTime(null);
+        });
+        await loadWeekHistory();
         return;
       }
 
-      // BUTTON ANIMATION
-      Animated.sequence([
-        Animated.timing(scaleAnim, {
-          toValue: 0.88,
-          duration: 100,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 3,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      // Press animation — unified spring
+      pressAnimation(scaleAnim, 0.94).start();
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
@@ -238,9 +290,19 @@ export default function MedicineDetailScreen({ route, navigation }) {
 
       await AsyncStorage.setItem(`streak_${medicine.id}`, String(newStreak));
 
+      // Fade in to full opacity on taken
+      Animated.timing(takenOpacity, {
+        toValue: 1,
+        duration: DURATION.fast,
+        easing: EASE.out,
+        useNativeDriver: true,
+      }).start();
+
       setStreak(newStreak);
       setTakenToday(true);
       setTakenTime(timeStr);
+
+      await loadWeekHistory();
     } catch (e) {
       console.log("Error updating taken status", e);
     }
@@ -256,6 +318,7 @@ export default function MedicineDetailScreen({ route, navigation }) {
   }
 
   async function saveReminders(updated) {
+    configureLayoutTransition();
     setReminders(updated);
     await AsyncStorage.setItem(
       `reminders_${medicine.id}`,
@@ -417,348 +480,520 @@ export default function MedicineDetailScreen({ route, navigation }) {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0d0d0f" />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 60 }}
+      <Animated.View
+        style={[
+          styles.screenWrapper,
+          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+        ]}
       >
-        {/* ── Header ── */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => navigation.goBack()}
-            >
-              <Ionicons name="arrow-back" size={20} color="#aaaacc" />
-            </TouchableOpacity>
-            <View style={styles.headerAccentBar} />
-            <Text style={styles.headerBrand}>MediTrack</Text>
-            <PillLogo
-              size={14}
-              colorLeft="#9b8fff"
-              colorRight="#4b4ba3"
-              rotate="-20deg"
-            />
-          </View>
-          <TouchableOpacity
-            style={styles.editBtn}
-            onPress={() => navigation.navigate("EditMedicine", { medicine })}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 60 }}
+        >
+          {/* Centered content container */}
+          <View
+            style={[
+              styles.contentContainer,
+              maxContentWidth && {
+                maxWidth: maxContentWidth,
+                alignSelf: "center",
+                width: "100%",
+              },
+            ]}
           >
-            <Ionicons name="pencil-outline" size={16} color="#9b8fff" />
-          </TouchableOpacity>
-        </View>
+            {/* ── Header ── */}
+            <View
+              style={[styles.header, { paddingHorizontal: contentPadding }]}
+            >
+              <View style={styles.headerLeft}>
+                <TouchableOpacity
+                  style={styles.backBtn}
+                  onPress={() => navigation.goBack()}
+                >
+                  <Ionicons name="arrow-back" size={20} color="#aaaacc" />
+                </TouchableOpacity>
+                <View style={styles.headerAccentBar} />
+                <Text style={[styles.headerBrand, { fontSize: fs(20, 22) }]}>
+                  MediTrack
+                </Text>
+                <PillLogo
+                  size={14}
+                  colorLeft="#9b8fff"
+                  colorRight="#4b4ba3"
+                  rotate="-20deg"
+                />
+              </View>
+              <TouchableOpacity
+                style={styles.editBtn}
+                onPress={() =>
+                  navigation.navigate("EditMedicine", { medicine })
+                }
+              >
+                <Ionicons name="pencil-outline" size={16} color="#9b8fff" />
+              </TouchableOpacity>
+            </View>
 
-        {/* ── Medicine Info Card ── */}
-        <View style={styles.infoCard}>
-          <View style={styles.infoCardTop}>
+            {/*
+          On large tablets: info card + tracking card sit side-by-side.
+          On phones/small tablets: stacked (existing layout).
+          We use a row wrapper that only activates on large tablets.
+        */}
             <View
               style={[
-                styles.pillIconBg,
-                {
-                  backgroundColor:
-                    status.label === "EXPIRED"
-                      ? "#1e0e0e"
-                      : status.label === "SOON"
-                        ? "#1a1208"
-                        : "#0a1a12",
+                useDetailSideBySide && {
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  paddingHorizontal: contentPadding,
+                  gap: 16,
                 },
               ]}
             >
-              <PillLogo
-                size={18}
-                colorLeft={pillLeft}
-                colorRight={pillRight}
-                rotate="-35deg"
-              />
-            </View>
-            <View style={{ flex: 1, marginLeft: 14 }}>
-              <Text style={styles.medicineName} numberOfLines={1}>
-                {medicine.name}
-              </Text>
+              {/* ── Medicine Info Card ── */}
               <View
-                style={[styles.statusBadge, { backgroundColor: status.bg }]}
+                style={[
+                  styles.infoCard,
+                  !useDetailSideBySide && { marginHorizontal: contentPadding },
+                  useDetailSideBySide && { flex: 1, marginHorizontal: 0 },
+                ]}
               >
-                <Text style={[styles.statusBadgeText, { color: status.color }]}>
-                  {status.label}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>EXPIRY</Text>
-              <Text style={styles.infoValue}>
-                {new Date(medicine.expiry).toLocaleDateString("en-IN", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })}
-              </Text>
-            </View>
-            <View style={styles.infoDivider} />
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>QUANTITY</Text>
-              <Text style={styles.infoValue}>{medicine.quantity} units</Text>
-            </View>
-            <View style={styles.infoDivider} />
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>DAYS LEFT</Text>
-              <Text style={[styles.infoValue, { color: status.color }]}>
-                {status.days < 0
-                  ? `${Math.abs(status.days)}d ago`
-                  : `${status.days}d`}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ── MARK AS TAKEN — Hero Section ── */}
-        {reminders.length > 0 ? (
-          <View style={styles.takenSection}>
-            {/* Streak bar */}
-            <View style={styles.streakRow}>
-              <View style={styles.streakBadge}>
-                <Text style={styles.streakFire}>🔥</Text>
-                <Text style={styles.streakCount}>{streak}</Text>
-                <Text style={styles.streakLabel}>day streak</Text>
-              </View>
-
-              {takenToday && takenTime && (
-                <View style={styles.takenTimeBadge}>
-                  <Ionicons name="checkmark-circle" size={12} color="#2ea86e" />
-                  <Text style={styles.takenTimeText}>Taken at {takenTime}</Text>
-                </View>
-              )}
-            </View>
-
-            {/* Big Mark as Taken button */}
-            <View style={styles.takenButtonWrapper}>
-              {!takenToday && (
-                <>
-                  <Animated.View
+                <View style={styles.infoCardTop}>
+                  <View
                     style={[
-                      styles.glowRing,
-                      styles.glowRing3,
-                      { opacity: glowOpacity },
+                      styles.pillIconBg,
+                      {
+                        backgroundColor:
+                          status.label === "EXPIRED"
+                            ? "#1e0e0e"
+                            : status.label === "SOON"
+                              ? "#1a1208"
+                              : "#0a1a12",
+                      },
                     ]}
-                  />
-
-                  <Animated.View
-                    style={[
-                      styles.glowRing,
-                      styles.glowRing2,
-                      { opacity: glowOpacity },
-                    ]}
-                  />
-
-                  <Animated.View
-                    style={[
-                      styles.glowRing,
-                      styles.glowRing1,
-                      { opacity: glowOpacity },
-                    ]}
-                  />
-                </>
-              )}
-
-              <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-                <TouchableOpacity
-                  style={[
-                    styles.takenButton,
-                    takenToday
-                      ? styles.takenButtonDone
-                      : styles.takenButtonPending,
-                  ]}
-                  onPress={handleMarkAsTaken}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons
-                    name={takenToday ? "checkmark" : "medical"}
-                    size={48}
-                    color={takenToday ? "#2ea86e" : "#9b8fff"}
-                  />
-                </TouchableOpacity>
-              </Animated.View>
-            </View>
-
-            {/* Status text */}
-            <Text
-              style={[
-                styles.takenStatusText,
-                {
-                  color: takenToday ? "#2ea86e" : "#9b8fff",
-                },
-              ]}
-            >
-              {takenToday ? "Taken today ✓" : "Tap to mark as taken"}
-            </Text>
-
-            <Text style={styles.takenSubText}>
-              {takenToday
-                ? "Great job! Come back tomorrow to keep your streak going."
-                : "Track your daily dose and build a healthy habit."}
-            </Text>
-
-            {/* Week dots */}
-            <View style={styles.weekRow}>
-              {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => {
-                const today = new Date().getDay();
-
-                const adjustedToday = today === 0 ? 6 : today - 1;
-
-                const isToday = i === adjustedToday;
-
-                const isPast = i < adjustedToday;
-
-                const isTakenDay = isToday && takenToday;
-
-                return (
-                  <View key={i} style={styles.weekDayItem}>
+                  >
+                    <PillLogo
+                      size={18}
+                      colorLeft={pillLeft}
+                      colorRight={pillRight}
+                      rotate="-35deg"
+                    />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 14 }}>
+                    <Text
+                      style={[styles.medicineName, { fontSize: fs(18, 20) }]}
+                      numberOfLines={1}
+                    >
+                      {medicine.name}
+                    </Text>
                     <View
                       style={[
-                        styles.weekDot,
-                        isTakenDay
-                          ? styles.weekDotTaken
-                          : isToday
-                            ? styles.weekDotToday
-                            : isPast && streak > adjustedToday - i
-                              ? styles.weekDotPast
-                              : styles.weekDotEmpty,
-                      ]}
-                    />
-
-                    <Text
-                      style={[
-                        styles.weekDayLabel,
-                        isToday && {
-                          color: "#ffffff",
-                        },
+                        styles.statusBadge,
+                        { backgroundColor: status.bg },
                       ]}
                     >
-                      {day}
+                      <Text
+                        style={[
+                          styles.statusBadgeText,
+                          { color: status.color },
+                        ]}
+                      >
+                        {status.label}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.infoRow}>
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>EXPIRY</Text>
+                    <Text style={styles.infoValue}>
+                      {new Date(medicine.expiry).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
                     </Text>
                   </View>
-                );
-              })}
-            </View>
-          </View>
-        ) : (
-          <View style={styles.takenSection}>
-            <View style={styles.emptyTrackingIcon}>
-              <Ionicons
-                name="notifications-off-outline"
-                size={34}
-                color="#555568"
-              />
-            </View>
-
-            <Text style={styles.noTrackingTitle}>
-              No daily reminders enabled
-            </Text>
-
-            <Text style={styles.noTrackingSubText}>
-              Add a reminder to enable medicine tracking
-            </Text>
-
-            <TouchableOpacity
-              style={styles.enableTrackingBtn}
-              onPress={openAddReminder}
-              activeOpacity={0.85}
-            >
-              <Ionicons
-                name="add-circle-outline"
-                size={18}
-                color="#ffffff"
-                style={{ marginRight: 8 }}
-              />
-
-              <Text style={styles.enableTrackingBtnText}>Add Reminder</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ── Reminders Section ── */}
-        <View style={styles.remindersSection}>
-          <View style={styles.remindersHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>DAILY REMINDERS</Text>
-              <Text style={styles.sectionSubtitle}>
-                {reminders.length === 0
-                  ? "No reminders set"
-                  : `${reminders.length} reminder${reminders.length > 1 ? "s" : ""} active`}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.addReminderBtn}
-              onPress={openAddReminder}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={16} color="#9b8fff" />
-              <Text style={styles.addReminderBtnText}>ADD</Text>
-            </TouchableOpacity>
-          </View>
-
-          {reminders.length === 0 && (
-            <View style={styles.emptyReminders}>
-              <Ionicons
-                name="alarm-outline"
-                size={32}
-                color="#222230"
-                style={{ marginBottom: 8 }}
-              />
-              <Text style={styles.emptyReminderText}>No reminders yet</Text>
-              <Text style={styles.emptyReminderSub}>
-                Tap ADD to set a daily reminder
-              </Text>
-            </View>
-          )}
-
-          {reminders.map((reminder) => (
-            <View key={reminder.id} style={styles.reminderCard}>
-              <View style={styles.reminderIconBox}>
-                <Ionicons name="alarm-outline" size={18} color="#9b8fff" />
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>QUANTITY</Text>
+                    {stockStatus.isLow && !isExpired ? (
+                      <View style={styles.stockChip}>
+                        <Text
+                          style={[
+                            styles.stockChipText,
+                            { color: stockStatus.color },
+                          ]}
+                        >
+                          {medicine.quantity} · {stockStatus.label}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.infoValue}>
+                        {medicine.quantity} units
+                      </Text>
+                    )}
+                  </View>
+                  <View style={styles.infoDivider} />
+                  <View style={styles.infoItem}>
+                    <Text style={styles.infoLabel}>DAYS LEFT</Text>
+                    <Text style={[styles.infoValue, { color: status.color }]}>
+                      {status.days < 0
+                        ? `${Math.abs(status.days)}d ago`
+                        : `${status.days}d`}
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <View style={styles.reminderInfo}>
-                <Text style={styles.reminderTime}>{reminder.label}</Text>
-                <Text style={styles.reminderSub}>Every day</Text>
+
+              {/* ── MARK AS TAKEN + Reminders column (side-by-side on large tablets) ── */}
+              <View style={useDetailSideBySide && { flex: 1 }}>
+                {/* ── MARK AS TAKEN — Compact Row ── */}
+                {reminders.length > 0 ? (
+                  <View
+                    style={[
+                      styles.takenSection,
+                      isExpired && styles.takenSectionExpired,
+                      !useDetailSideBySide && {
+                        marginHorizontal: contentPadding,
+                      },
+                      useDetailSideBySide && { marginHorizontal: 0 },
+                    ]}
+                  >
+                    {/* Top row: streak + action button */}
+                    <View style={styles.streakRow}>
+                      <View
+                        style={[
+                          styles.streakBadge,
+                          isExpired && styles.streakBadgeExpired,
+                        ]}
+                      >
+                        {!isExpired && (
+                          <>
+                            <Text style={styles.streakFire}>🔥</Text>
+                            <View style={styles.streakDivider} />
+                          </>
+                        )}
+                        <Text
+                          style={[
+                            styles.streakCount,
+                            isExpired && { color: "#444455" },
+                          ]}
+                        >
+                          {isExpired ? "—" : streak}
+                        </Text>
+                        <Text style={styles.streakLabel}>day streak</Text>
+                      </View>
+
+                      {isExpired ? (
+                        <View style={styles.expiredTrackingRow}>
+                          <Ionicons
+                            name="alert-circle-outline"
+                            size={13}
+                            color="#e05555"
+                          />
+                          <Text style={styles.expiredTrackingText}>
+                            Expired medicine
+                          </Text>
+                        </View>
+                      ) : (
+                        <Animated.View
+                          style={{
+                            transform: [{ scale: scaleAnim }],
+                            opacity: takenOpacity,
+                          }}
+                        >
+                          <TouchableOpacity
+                            style={[
+                              styles.takenPillBtn,
+                              takenToday
+                                ? styles.takenPillDone
+                                : styles.takenPillPending,
+                            ]}
+                            onPress={handleMarkAsTaken}
+                            activeOpacity={0.8}
+                          >
+                            <Ionicons
+                              name={
+                                takenToday
+                                  ? "checkmark-circle"
+                                  : "medical-outline"
+                              }
+                              size={14}
+                              color={takenToday ? "#2ea86e" : "#9b8fff"}
+                            />
+                            <Text
+                              style={[
+                                styles.takenPillText,
+                                { color: takenToday ? "#2ea86e" : "#9b8fff" },
+                              ]}
+                            >
+                              {takenToday
+                                ? `Taken${takenTime ? ` · ${takenTime}` : ""}`
+                                : "Mark as taken"}
+                            </Text>
+                          </TouchableOpacity>
+                        </Animated.View>
+                      )}
+                    </View>
+
+                    {/* Week dots */}
+                    <View style={styles.weekRow}>
+                      {weekHistory.map((day, index) => {
+                        const today = new Date();
+
+                        const isToday =
+                          day.date.toDateString() === today.toDateString();
+
+                        const label = day.date
+                          .toLocaleDateString("en-IN", {
+                            weekday: "short",
+                          })
+                          .charAt(0);
+
+                        return (
+                          <View key={index} style={styles.weekDayItem}>
+                            <View
+                              style={[
+                                styles.weekDot,
+                                isExpired
+                                  ? styles.weekDotExpired
+                                  : day.taken
+                                    ? styles.weekDotTaken
+                                    : isToday
+                                      ? styles.weekDotToday
+                                      : styles.weekDotEmpty,
+                              ]}
+                            />
+
+                            <Text
+                              style={[
+                                styles.weekDayLabel,
+                                isToday && {
+                                  color: "#ffffff",
+                                },
+                              ]}
+                            >
+                              {label}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                ) : (
+                  <View
+                    style={[
+                      styles.takenSection,
+                      isExpired && styles.takenSectionExpired,
+                      !useDetailSideBySide && {
+                        marginHorizontal: contentPadding,
+                      },
+                      useDetailSideBySide && { marginHorizontal: 0 },
+                    ]}
+                  >
+                    <View style={styles.emptyTrackingIcon}>
+                      <Ionicons
+                        name={
+                          isExpired
+                            ? "ban-outline"
+                            : "notifications-off-outline"
+                        }
+                        size={34}
+                        color={isExpired ? "#e0555540" : "#555568"}
+                      />
+                    </View>
+
+                    <Text style={styles.noTrackingTitle}>
+                      {isExpired
+                        ? "Tracking unavailable"
+                        : "No daily reminders enabled"}
+                    </Text>
+
+                    <Text style={styles.noTrackingSubText}>
+                      {isExpired
+                        ? "This medicine has expired and cannot be tracked."
+                        : "Add a reminder to enable medicine tracking"}
+                    </Text>
+
+                    {!isExpired && (
+                      <TouchableOpacity
+                        style={styles.enableTrackingBtn}
+                        onPress={openAddReminder}
+                        activeOpacity={0.85}
+                      >
+                        <Ionicons
+                          name="add-circle-outline"
+                          size={18}
+                          color="#ffffff"
+                          style={{ marginRight: 8 }}
+                        />
+                        <Text style={styles.enableTrackingBtnText}>
+                          Add Reminder
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+
+                {/* ── Reminders Section ── */}
+                <View
+                  style={[
+                    styles.remindersSection,
+                    !useDetailSideBySide && {
+                      marginHorizontal: contentPadding,
+                    },
+                    useDetailSideBySide && { marginHorizontal: 0 },
+                  ]}
+                >
+                  <View style={styles.remindersHeader}>
+                    <View>
+                      <Text style={styles.sectionTitle}>DAILY REMINDERS</Text>
+                      <Text style={styles.sectionSubtitle}>
+                        {isExpired
+                          ? "Inactive — medicine expired"
+                          : reminders.length === 0
+                            ? "No reminders set"
+                            : `${reminders.length} reminder${reminders.length > 1 ? "s" : ""} active`}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[
+                        styles.addReminderBtn,
+                        isExpired && styles.addReminderBtnDisabled,
+                      ]}
+                      onPress={isExpired ? undefined : openAddReminder}
+                      activeOpacity={isExpired ? 1 : 0.8}
+                    >
+                      <Ionicons
+                        name="add"
+                        size={16}
+                        color={isExpired ? "#333344" : "#9b8fff"}
+                      />
+                      <Text
+                        style={[
+                          styles.addReminderBtnText,
+                          isExpired && { color: "#333344" },
+                        ]}
+                      >
+                        ADD
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {reminders.length === 0 && (
+                    <View style={styles.emptyReminders}>
+                      <Ionicons
+                        name="alarm-outline"
+                        size={32}
+                        color="#222230"
+                        style={{ marginBottom: 8 }}
+                      />
+                      <Text style={styles.emptyReminderText}>
+                        No reminders yet
+                      </Text>
+                      <Text style={styles.emptyReminderSub}>
+                        Tap ADD to set a daily reminder
+                      </Text>
+                    </View>
+                  )}
+
+                  {reminders.map((reminder) => (
+                    <View
+                      key={reminder.id}
+                      style={[
+                        styles.reminderCard,
+                        isExpired && styles.reminderCardExpired,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.reminderIconBox,
+                          isExpired && styles.reminderIconBoxExpired,
+                        ]}
+                      >
+                        <Ionicons
+                          name="alarm-outline"
+                          size={18}
+                          color={isExpired ? "#333344" : "#9b8fff"}
+                        />
+                      </View>
+                      <View style={styles.reminderInfo}>
+                        <Text
+                          style={[
+                            styles.reminderTime,
+                            isExpired && { color: "#444455" },
+                          ]}
+                        >
+                          {reminder.label}
+                        </Text>
+                        <Text style={styles.reminderSub}>
+                          {isExpired ? "Inactive" : "Every day"}
+                        </Text>
+                      </View>
+                      {!isExpired && (
+                        <View style={styles.reminderActionsGroup}>
+                          <TouchableOpacity
+                            onPress={() => openEditReminder(reminder)}
+                            style={styles.reminderAction}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons
+                              name="pencil-outline"
+                              size={15}
+                              color="#555568"
+                            />
+                          </TouchableOpacity>
+                          <View style={styles.reminderActionDivider} />
+                          <TouchableOpacity
+                            onPress={() => deleteReminder(reminder)}
+                            style={styles.reminderAction}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons
+                              name="trash-outline"
+                              size={15}
+                              color="#c04444"
+                            />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+
+                  {reminders.length > 0 && (
+                    <TouchableOpacity
+                      style={styles.clearBtn}
+                      onPress={clearAllReminders}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={13}
+                        color="#7a3535"
+                      />
+                      <Text style={styles.clearBtnText}>
+                        Clear all reminders
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
-              <TouchableOpacity
-                onPress={() => openEditReminder(reminder)}
-                style={styles.reminderAction}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="pencil" size={16} color="#555568" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => deleteReminder(reminder)}
-                style={styles.reminderAction}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="trash-outline" size={16} color="#e05555" />
-              </TouchableOpacity>
+              {/* end side-by-side column */}
             </View>
-          ))}
+            {/* end side-by-side row */}
+          </View>
+          {/* end contentContainer */}
 
-          {reminders.length > 0 && (
-            <TouchableOpacity
-              style={styles.clearBtn}
-              onPress={clearAllReminders}
-            >
-              <Text style={styles.clearBtnText}>Clear All Reminders</Text>
-            </TouchableOpacity>
+          {showPicker && (
+            <DateTimePicker
+              value={pickerTime}
+              mode="time"
+              is24Hour={false}
+              display={Platform.OS === "android" ? "clock" : "spinner"}
+              onChange={handleTimeSelected}
+            />
           )}
-        </View>
-
-        {showPicker && (
-          <DateTimePicker
-            value={pickerTime}
-            mode="time"
-            is24Hour={false}
-            display={Platform.OS === "android" ? "clock" : "spinner"}
-            onChange={handleTimeSelected}
-          />
-        )}
-      </ScrollView>
+        </ScrollView>
+      </Animated.View>
 
       {/* ── Modal ── */}
       <Modal
@@ -820,13 +1055,14 @@ export default function MedicineDetailScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0d0d0f" },
+  screenWrapper: { flex: 1 },
+  contentContainer: { flex: 1 },
 
-  // Header
+  // Header — paddingHorizontal applied inline from layout
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
   },
@@ -864,12 +1100,11 @@ const styles = StyleSheet.create({
     borderColor: "#2a2a38",
   },
 
-  // Info card
+  // Info card — marginHorizontal applied inline from layout
   infoCard: {
     backgroundColor: "#161620",
     borderRadius: 16,
     padding: 16,
-    marginHorizontal: 20,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: "#222230",
@@ -895,6 +1130,17 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   statusBadgeText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
+
+  // Stock chip — shown inside info card when stock is low/critical
+  stockChip: {
+    alignSelf: "center",
+  },
+  stockChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+    letterSpacing: 0.1,
+  },
   infoRow: { flexDirection: "row", alignItems: "center" },
   infoItem: { flex: 1, alignItems: "center" },
   infoDivider: { width: 1, height: 30, backgroundColor: "#222230" },
@@ -912,122 +1158,116 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // Mark as Taken section
+  // Mark as Taken — marginHorizontal applied inline from layout
   takenSection: {
-    marginHorizontal: 20,
     marginBottom: 20,
     backgroundColor: "#161620",
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: "#222230",
-    alignItems: "center",
   },
   streakRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     width: "100%",
-    marginBottom: 24,
+    marginBottom: 12,
+  },
+  takenPillBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderWidth: 1,
+  },
+  takenPillPending: {
+    backgroundColor: "#1a1a2e",
+    borderColor: "#9b8fff40",
+  },
+  takenPillDone: {
+    backgroundColor: "#0c2218",
+    borderColor: "#145030",
+  },
+  takenPillText: {
+    fontSize: 12,
+    fontWeight: "600",
   },
   streakBadge: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#1e1e2e",
     borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderWidth: 1,
     borderColor: "#2a2a3e",
-    gap: 6,
+    gap: 5,
   },
-  streakFire: { fontSize: 16 },
-  streakCount: { fontSize: 20, fontWeight: "800", color: "#ffffff" },
-  streakLabel: { fontSize: 12, color: "#555568", fontWeight: "500" },
-  takenTimeBadge: {
+  streakBadgeExpired: {
+    borderColor: "#222230",
+    backgroundColor: "#161620",
+  },
+  streakFire: { fontSize: 13, lineHeight: 18 },
+  streakDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: "#2e2e42",
+    marginHorizontal: 1,
+  },
+  streakCount: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#ffffff",
+    letterSpacing: 0.2,
+  },
+  streakLabel: {
+    fontSize: 11,
+    color: "#444455",
+    fontWeight: "500",
+    letterSpacing: 0.1,
+  },
+
+  takenSectionExpired: {
+    borderColor: "#1e1515",
+    opacity: 0.7,
+  },
+  expiredTrackingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "#0c2218",
+    backgroundColor: "#1e0e0e",
     borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "#145030",
-  },
-  takenTimeText: { fontSize: 11, color: "#2ea86e", fontWeight: "600" },
-
-  // Glow button
-  takenButtonWrapper: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-    width: 180,
-    height: 180,
-  },
-  glowRing: { position: "absolute", borderRadius: 100, borderWidth: 1 },
-  glowRing1: {
-    width: 140,
-    height: 140,
-    borderColor: "#9b8fff",
-    backgroundColor: "#9b8fff08",
-  },
-  glowRing2: {
-    width: 160,
-    height: 160,
-    borderColor: "#9b8fff",
-    backgroundColor: "#9b8fff05",
-    borderWidth: 0.5,
-  },
-  glowRing3: {
-    width: 180,
-    height: 180,
-    borderColor: "#9b8fff",
-    backgroundColor: "#9b8fff03",
-    borderWidth: 0.3,
-  },
-  takenButton: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-  },
-  takenButtonPending: {
-    backgroundColor: "#1a1a2e",
-    borderColor: "#9b8fff",
-  },
-  takenButtonDone: {
-    backgroundColor: "#0c2218",
-    borderColor: "#2ea86e",
-  },
-  takenStatusText: { fontSize: 18, fontWeight: "700", marginBottom: 6 },
-  takenSubText: {
-    fontSize: 12,
-    color: "#555568",
-    textAlign: "center",
-    lineHeight: 18,
-    marginBottom: 20,
     paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "#3a1515",
+  },
+  expiredTrackingText: {
+    fontSize: 11,
+    color: "#e05555",
+    fontWeight: "500",
   },
 
   // Week dots
   weekRow: { flexDirection: "row", gap: 8, alignItems: "center" },
   weekDayItem: { alignItems: "center", gap: 6 },
   weekDot: { width: 10, height: 10, borderRadius: 5 },
-  weekDotEmpty: { backgroundColor: "#222230" },
+  weekDotEmpty: { backgroundColor: "#2e2e40" },
+  weekDotExpired: { backgroundColor: "#2a1515" },
   weekDotToday: {
-    backgroundColor: "#9b8fff40",
+    backgroundColor: "#9b8fff30",
     borderWidth: 1,
-    borderColor: "#9b8fff",
+    borderColor: "#9b8fff80",
   },
   weekDotTaken: { backgroundColor: "#2ea86e" },
-  weekDotPast: { backgroundColor: "#2ea86e60" },
+  weekDotPast: { backgroundColor: "#2ea86e55" },
   weekDayLabel: { fontSize: 10, color: "#555568", fontWeight: "600" },
 
-  // Reminders
-  remindersSection: { marginHorizontal: 20 },
+  // Reminders — marginHorizontal applied inline from layout
+  remindersSection: {},
   remindersHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1035,13 +1275,13 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sectionTitle: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#444455",
-    letterSpacing: 1.5,
-    marginBottom: 4,
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#3d3d52",
+    letterSpacing: 1.2,
+    marginBottom: 3,
   },
-  sectionSubtitle: { fontSize: 11, color: "#555568" },
+  sectionSubtitle: { fontSize: 12, color: "#6e6e88", fontWeight: "500" },
   addReminderBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -1104,9 +1344,45 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   reminderSub: { fontSize: 11, color: "#555568" },
-  reminderAction: { padding: 6 },
-  clearBtn: { alignItems: "center", padding: 14, marginTop: 4 },
-  clearBtnText: { color: "#e05555", fontSize: 12, fontWeight: "600" },
+  reminderActionsGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1a1a28",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#2a2a3a",
+    overflow: "hidden",
+  },
+  reminderAction: { paddingHorizontal: 10, paddingVertical: 8 },
+  reminderActionDivider: { width: 1, height: 16, backgroundColor: "#2a2a3a" },
+  reminderCardExpired: { borderColor: "#1e1e28", opacity: 0.5 },
+  reminderIconBoxExpired: {
+    borderColor: "#1e1e28",
+    backgroundColor: "#111118",
+  },
+  addReminderBtnDisabled: {
+    borderColor: "#1e1e28",
+    backgroundColor: "#111118",
+  },
+  clearBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#2e1a1a",
+    backgroundColor: "#130d0d",
+  },
+  clearBtnText: {
+    color: "#7a3535",
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.2,
+  },
 
   // Modal
   modalOverlay: {

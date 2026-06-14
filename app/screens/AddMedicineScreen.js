@@ -5,19 +5,24 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   ActivityIndicator,
   StatusBar,
   Platform,
+  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { addMedicine } from "../data/storage";
-import { scheduleMedicineAlerts, requestPermissions } from "../data/notifications";
+import {
+  scheduleMedicineAlerts,
+  requestPermissions,
+} from "../data/notifications";
 import { scanExpiryDate } from "../data/ocr";
 import * as Haptics from "expo-haptics";
 import PillLogo from "../components/PillLogo";
+import { entranceAnimation, pressAnimation } from "../motion";
+import AppModal from "../components/AppModal";
 
 function normalizeDate(input) {
   const trimmed = input.trim();
@@ -32,13 +37,28 @@ function normalizeDate(input) {
 }
 
 export default function AddMedicineScreen({ navigation, route }) {
-  const [name, setName]               = useState("");
-  const [expiry, setExpiry]           = useState("");
-  const [quantity, setQuantity]       = useState("1");
-  const [loading, setLoading]         = useState(false);
-  const [scanning, setScanning]       = useState(false);
+  const [name, setName] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [quantity, setQuantity] = useState("1");
+  const [loading, setLoading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedDate, setSelectedDate]     = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+
+  const [validationModal, setValidationModal] = useState({
+    visible: false,
+    title: "",
+    message: "",
+  });
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(10)).current;
+  const saveBtnScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    entranceAnimation(fadeAnim, slideAnim).start();
+  }, []);
 
   useEffect(() => {
     if (route?.params?.prefill) {
@@ -62,8 +82,8 @@ export default function AddMedicineScreen({ navigation, route }) {
 
     setSelectedDate(date);
     const yyyy = date.getFullYear();
-    const mm   = String(date.getMonth() + 1).padStart(2, "0");
-    const dd   = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
     setExpiry(`${yyyy}-${mm}-${dd}`);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
@@ -95,20 +115,38 @@ export default function AddMedicineScreen({ navigation, route }) {
 
     if (result.canceled) return;
     if (result.error) {
-      Alert.alert("Scan Failed", `${result.error}\n\nPlease enter details manually.`);
+      setErrorModalVisible(true);
       return;
     }
 
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    if (result.date)     setExpiry(result.date);
-    if (result.name)     setName(result.name);
+    if (result.date) setExpiry(result.date);
+    if (result.name) setName(result.name);
     if (result.quantity) setQuantity(result.quantity.toString());
+  }
+
+  async function retryScan() {
+    if (scanning) return;
+
+    setErrorModalVisible(false);
+
+    setTimeout(async () => {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      await handleScan();
+    }, 250);
   }
 
   async function handleSave() {
     if (!name.trim()) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Missing Info", "Please enter medicine name");
+
+      setValidationModal({
+        visible: true,
+        title: "Missing Information",
+        message: "Please enter a medicine name.",
+      });
+
       return;
     }
 
@@ -116,19 +154,25 @@ export default function AddMedicineScreen({ navigation, route }) {
 
     if (!normalizedExpiry || !/^\d{4}-\d{2}-\d{2}$/.test(normalizedExpiry)) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        "Invalid Date",
-        "Please enter date in any of these formats:\nYYYY-MM-DD\nDD/MM/YYYY\nMM/YYYY\n\nOr tap the calendar icon to pick a date."
-      );
+      setValidationModal({
+        visible: true,
+        title: "Invalid Expiry Date",
+        message: "Please enter a valid expiry date or use the calendar picker.",
+      });
       return;
     }
 
     if (!quantity.trim() || parseInt(quantity) < 1) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Missing Info", "Please enter a valid quantity");
+      setValidationModal({
+        visible: true,
+        title: "Invalid Quantity",
+        message: "Please enter a quantity greater than zero.",
+      });
       return;
     }
 
+    pressAnimation(saveBtnScale, 0.97).start();
     setLoading(true);
 
     const newMedicine = {
@@ -165,138 +209,210 @@ export default function AddMedicineScreen({ navigation, route }) {
           </TouchableOpacity>
           <View style={styles.headerAccentBar} />
           <Text style={styles.headerBrand}>MediTrack</Text>
-          <PillLogo size={14} colorLeft="#9b8fff" colorRight="#4b4ba3" rotate="-20deg" />
+          <PillLogo
+            size={14}
+            colorLeft="#9b8fff"
+            colorRight="#4b4ba3"
+            rotate="-20deg"
+          />
         </View>
         <TouchableOpacity style={styles.bellBtn}>
           <Ionicons name="notifications-outline" size={20} color="#aaaacc" />
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+      <Animated.View
+        style={[
+          styles.screenWrapper,
+          { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+        ]}
       >
-        {/* Scan Card */}
-        <View style={styles.scanCard}>
-          <View style={styles.scanIconBox}>
-            <Ionicons name="scan" size={32} color="#9b8fff" />
-          </View>
-          <Text style={styles.scanCardTitle}>Scan Medicine</Text>
-          <Text style={styles.scanCardSubtitle}>
-            Auto-fill details instantly by scanning the packaging
-          </Text>
-          <TouchableOpacity
-            style={[styles.startScannerBtn, scanning && styles.startScannerBtnDisabled]}
-            onPress={handleScan}
-            disabled={scanning}
-            activeOpacity={0.85}
-          >
-            {scanning ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <>
-                <Ionicons name="scan-outline" size={16} color="#ffffff" style={{ marginRight: 8 }} />
-                <Text style={styles.startScannerText}>Start Scanner</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* OR Divider */}
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>OR</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {/* Medicine Name */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>MEDICINE NAME</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Dolo 650, Crocin"
-            placeholderTextColor="#555568"
-            value={name}
-            onChangeText={setName}
-          />
-        </View>
-
-        {/* Expiry Date */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>EXPIRY DATE</Text>
-          <Text style={styles.fieldHint}>Type any format or tap calendar to pick</Text>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={[styles.input, { flex: 1, borderWidth: 0 }]}
-              placeholder="e.g. 10/12/2026 or 12/2026"
-              placeholderTextColor="#555568"
-              value={expiry}
-              onChangeText={setExpiry}
-              keyboardType="numeric"
-            />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Scan Card */}
+          <View style={styles.scanCard}>
+            <View style={styles.scanIconBox}>
+              <Ionicons name="scan" size={32} color="#9b8fff" />
+            </View>
+            <Text style={styles.scanCardTitle}>Scan Medicine</Text>
+            <Text style={styles.scanCardSubtitle}>
+              Auto-fill details instantly by scanning the packaging
+            </Text>
             <TouchableOpacity
-              onPress={handleCalendarPress}
-              style={styles.calendarBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={[
+                styles.startScannerBtn,
+                scanning && styles.startScannerBtnDisabled,
+              ]}
+              onPress={handleScan}
+              disabled={scanning}
+              activeOpacity={0.85}
             >
-              <Ionicons name="calendar-outline" size={20} color="#9b8fff" />
+              {scanning ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  <Ionicons
+                    name="scan-outline"
+                    size={16}
+                    color="#ffffff"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.startScannerText}>Start Scanner</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Date Picker */}
-        {showDatePicker && (
-          <DateTimePicker
-            value={selectedDate}
-            mode="date"
-            display={Platform.OS === "android" ? "calendar" : "spinner"}
-            onChange={handleDateChange}
-            minimumDate={new Date()}
-          />
-        )}
+          {/* OR Divider */}
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
 
-        {/* Quantity */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>QUANTITY</Text>
-          <View style={styles.quantityRow}>
-            <TouchableOpacity style={styles.qtyBtn} onPress={decrementQuantity}>
-              <Ionicons name="remove" size={20} color="#aaaacc" />
-            </TouchableOpacity>
+          {/* Medicine Name */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>MEDICINE NAME</Text>
             <TextInput
-              style={styles.qtyInput}
-              value={quantity}
-              onChangeText={(v) => setQuantity(v.replace(/[^0-9]/g, ""))}
-              keyboardType="numeric"
-              textAlign="center"
+              style={styles.input}
+              placeholder="e.g. Dolo 650, Crocin"
+              placeholderTextColor="#555568"
+              value={name}
+              onChangeText={setName}
             />
-            <TouchableOpacity style={styles.qtyBtn} onPress={incrementQuantity}>
-              <Ionicons name="add" size={20} color="#aaaacc" />
+          </View>
+
+          {/* Expiry Date */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>EXPIRY DATE</Text>
+            <Text style={styles.fieldHint}>
+              Type any format or tap calendar to pick
+            </Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={[styles.input, { flex: 1, borderWidth: 0 }]}
+                placeholder="e.g. 10/12/2026 or 12/2026"
+                placeholderTextColor="#555568"
+                value={expiry}
+                onChangeText={setExpiry}
+                keyboardType="numeric"
+              />
+              <TouchableOpacity
+                onPress={handleCalendarPress}
+                style={styles.calendarBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#9b8fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Date Picker */}
+          {showDatePicker && (
+            <DateTimePicker
+              value={selectedDate}
+              mode="date"
+              display={Platform.OS === "android" ? "calendar" : "spinner"}
+              onChange={handleDateChange}
+              minimumDate={new Date()}
+            />
+          )}
+
+          {/* Quantity */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>QUANTITY</Text>
+            <View style={styles.quantityRow}>
+              <TouchableOpacity
+                style={styles.qtyBtn}
+                onPress={decrementQuantity}
+              >
+                <Ionicons name="remove" size={20} color="#aaaacc" />
+              </TouchableOpacity>
+              <TextInput
+                style={styles.qtyInput}
+                value={quantity}
+                onChangeText={(v) => setQuantity(v.replace(/[^0-9]/g, ""))}
+                keyboardType="numeric"
+                textAlign="center"
+              />
+              <TouchableOpacity
+                style={styles.qtyBtn}
+                onPress={incrementQuantity}
+              >
+                <Ionicons name="add" size={20} color="#aaaacc" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Save Row */}
+          <View style={styles.saveRow}>
+            <Animated.View
+              style={[{ flex: 1 }, { transform: [{ scale: saveBtnScale }] }]}
+            >
+              <TouchableOpacity
+                style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
+                onPress={handleSave}
+                disabled={loading}
+                activeOpacity={0.88}
+              >
+                {loading ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.saveBtnText}>SAVE MEDICINE</Text>
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              onPress={handleClearForm}
+            >
+              <Ionicons name="trash-outline" size={20} color="#ffffff" />
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Save Row */}
-        <View style={styles.saveRow}>
-          <TouchableOpacity
-            style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
-            onPress={handleSave}
-            disabled={loading}
-            activeOpacity={0.85}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <Text style={styles.saveBtnText}>SAVE MEDICINE</Text>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.deleteBtn} onPress={handleClearForm}>
-            <Ionicons name="trash-outline" size={20} color="#ffffff" />
-          </TouchableOpacity>
-        </View>
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </Animated.View>
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      {/* Scan Error Modal */}
+      <AppModal
+        visible={errorModalVisible}
+        type="error"
+        title="Unable to Complete Scan"
+        message="We couldn't analyze the medicine image at the moment. Please try again later or enter the medicine details manually."
+        primaryText="Retry"
+        secondaryText="Continue Manually"
+        onPrimary={retryScan}
+        onSecondary={() => setErrorModalVisible(false)}
+        onClose={() => setErrorModalVisible(false)}
+      />
+
+      {/* Validation Modal */}
+      <AppModal
+        visible={validationModal.visible}
+        type="warning"
+        title={validationModal.title}
+        message={validationModal.message}
+        primaryText="OK"
+        singleButton={true}
+        onPrimary={() =>
+          setValidationModal({
+            visible: false,
+            title: "",
+            message: "",
+          })
+        }
+        onClose={() =>
+          setValidationModal({
+            visible: false,
+            title: "",
+            message: "",
+          })
+        }
+      />
     </View>
   );
 }
@@ -306,6 +422,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#0d0d0f",
   },
+  screenWrapper: { flex: 1 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",

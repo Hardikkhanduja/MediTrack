@@ -63,8 +63,12 @@ export async function scanExpiryDate() {
 
     if (!response.ok) {
       const errorData = await response.json();
+
+      console.log("Gemini API Error:", JSON.stringify(errorData));
+
       return {
-        error: "Gemini API Error - Check your API key limits",
+        error:
+          "Unable to Complete Scan. We couldn't analyze the medicine image at the moment. Please try again later or enter the medicine details manually.",
         rawText: JSON.stringify(errorData),
       };
     }
@@ -74,7 +78,11 @@ export async function scanExpiryDate() {
       data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
 
     if (!detectedText) {
-      return { error: "No data returned from AI", rawText: "NONE" };
+      return {
+        error:
+          "We couldn't identify any medicine information in the image. Please try taking a clearer photo.",
+        rawText: "NONE",
+      };
     }
 
     try {
@@ -86,7 +94,8 @@ export async function scanExpiryDate() {
 
       if (!parsed.expiry && !parsed.name) {
         return {
-          error: "No medicine info found in image",
+          error:
+            "No medicine details could be detected. Try capturing the medicine strip in better lighting.",
           rawText: detectedText,
         };
       }
@@ -98,11 +107,16 @@ export async function scanExpiryDate() {
         rawText: detectedText,
       };
     } catch (e) {
-      return { error: "AI returned invalid format", rawText: detectedText };
+      return {
+        error:
+          "We couldn't process the scan result. Please try scanning again.",
+        rawText: detectedText,
+      };
     }
   } catch (e) {
     return {
-      error: "AI Scanner Failed. Check your internet connection.",
+      error:
+        "Unable to Complete Scan. Please check your internet connection and try again.",
       rawText: e.message,
     };
   }
