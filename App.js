@@ -5,16 +5,17 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 
-import SplashScreen         from "./app/screens/SplashScreen";
-import OnboardingScreen     from "./app/screens/OnboardingScreen";
-import HomeScreen           from "./app/screens/HomeScreen";
-import MedicationScreen     from "./app/screens/MedicationScreen";
-import ScanScreen           from "./app/screens/ScanScreen";
-import SettingsScreen       from "./app/screens/SettingsScreen";
-import AddMedicineScreen    from "./app/screens/AddMedicineScreen";
-import EditMedicineScreen   from "./app/screens/EditMedicineScreen";
+import SplashScreen from "./app/screens/SplashScreen";
+import OnboardingScreen from "./app/screens/OnboardingScreen";
+import HomeScreen from "./app/screens/HomeScreen";
+import MedicationScreen from "./app/screens/MedicationScreen";
+import ScanScreen from "./app/screens/ScanScreen";
+import SettingsScreen from "./app/screens/SettingsScreen";
+import AddMedicineScreen from "./app/screens/AddMedicineScreen";
+import EditMedicineScreen from "./app/screens/EditMedicineScreen";
 import MedicineDetailScreen from "./app/screens/MedicineDetailScreen";
-import NotificationScreen   from "./app/screens/NotificationScreen";
+import NotificationScreen from "./app/screens/NotificationScreen";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -25,13 +26,23 @@ Notifications.setNotificationHandler({
 });
 
 const Stack = createNativeStackNavigator();
-const Tab   = createBottomTabNavigator();
+const Tab = createBottomTabNavigator();
 
 const TABS = [
-  { name: "Home",       icon: "home",              iconOutline: "home-outline",         label: "HOME"       },
-  { name: "Scan",       icon: "scan",              iconOutline: "scan-outline",         label: "SCAN"       },
-  { name: "Medication", icon: "medkit",            iconOutline: "medkit-outline",       label: "MEDICATION" },
-  { name: "Settings",   icon: "settings-sharp",    iconOutline: "settings-outline",     label: "SETTINGS"   },
+  { name: "Home", icon: "home", iconOutline: "home-outline", label: "HOME" },
+  { name: "Scan", icon: "scan", iconOutline: "scan-outline", label: "SCAN" },
+  {
+    name: "Medication",
+    icon: "medkit",
+    iconOutline: "medkit-outline",
+    label: "MEDICATION",
+  },
+  {
+    name: "Settings",
+    icon: "settings-sharp",
+    iconOutline: "settings-outline",
+    label: "SETTINGS",
+  },
 ];
 
 function CustomTabBar({ state, navigation }) {
@@ -43,7 +54,9 @@ function CustomTabBar({ state, navigation }) {
           return (
             <TouchableOpacity
               key={tab.name}
-              onPress={() => { if (!isFocused) navigation.navigate(tab.name); }}
+              onPress={() => {
+                if (!isFocused) navigation.navigate(tab.name);
+              }}
               activeOpacity={0.7}
               style={styles.tabItem}
             >
@@ -52,7 +65,9 @@ function CustomTabBar({ state, navigation }) {
                 size={22}
                 color={isFocused ? "#9b8fff" : "#555568"}
               />
-              <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
+              <Text
+                style={[styles.tabLabel, isFocused && styles.tabLabelActive]}
+              >
                 {tab.label}
               </Text>
             </TouchableOpacity>
@@ -69,44 +84,46 @@ function MainTabs() {
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen name="Home"       component={HomeScreen} />
-      <Tab.Screen name="Scan"       component={ScanScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Scan" component={ScanScreen} />
       <Tab.Screen name="Medication" component={MedicationScreen} />
-      <Tab.Screen name="Settings"   component={SettingsScreen} />
+      <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );
 }
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Splash"     component={SplashScreen} />
-        <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-        <Stack.Screen name="Main"       component={MainTabs} />
-        <Stack.Screen name="MainTabs"   component={MainTabs} />
-        <Stack.Screen
-          name="AddMedicine"
-          component={AddMedicineScreen}
-          options={{ animation: "slide_from_bottom" }}
-        />
-        <Stack.Screen
-          name="EditMedicine"
-          component={EditMedicineScreen}
-          options={{ animation: "fade_from_bottom" }}
-        />
-        <Stack.Screen
-          name="MedicineDetail"
-          component={MedicineDetailScreen}
-          options={{ animation: "fade_from_bottom" }}
-        />
-        <Stack.Screen
-          name="Notifications"
-          component={NotificationScreen}
-          options={{ animation: "slide_from_right" }}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Splash" component={SplashScreen} />
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Screen
+            name="AddMedicine"
+            component={AddMedicineScreen}
+            options={{ animation: "slide_from_bottom" }}
+          />
+          <Stack.Screen
+            name="EditMedicine"
+            component={EditMedicineScreen}
+            options={{ animation: "fade_from_bottom" }}
+          />
+          <Stack.Screen
+            name="MedicineDetail"
+            component={MedicineDetailScreen}
+            options={{ animation: "fade_from_bottom" }}
+          />
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationScreen}
+            options={{ animation: "slide_from_right" }}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
   );
 }
 
