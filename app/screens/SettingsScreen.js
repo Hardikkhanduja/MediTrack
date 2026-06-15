@@ -296,11 +296,22 @@ export default function SettingsScreen({ navigation }) {
             />
 
             <View style={styles.modalBtns}>
+              {userName ? (
+                <TouchableOpacity
+                  style={[styles.modalCancelBtn, { flex: 1 }]}
+                  onPress={() => setNameModal(false)}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              ) : null}
+
               <TouchableOpacity
                 style={[styles.modalSaveBtn, { flex: 1 }]}
-                onPress={() => setThemeModalVisible(false)}
+                onPress={saveName}
               >
-                <Text style={styles.modalSaveText}>Got It</Text>
+                <Text style={styles.modalSaveText}>
+                  {userName ? "Save" : "Continue"}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -655,8 +666,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#9b8fff",
   },
   modalSaveText: {
-    color: "#000000",
-    fontSize: 18,
-    fontWeight: "900",
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });
