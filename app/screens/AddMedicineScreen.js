@@ -24,6 +24,8 @@ import PillLogo from "../components/PillLogo";
 import { entranceAnimation, pressAnimation } from "../motion";
 import AppModal from "../components/AppModal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+const FAMILY_MEMBERS_KEY = "meditrack_family_members";
 
 function normalizeDate(input) {
   const trimmed = input.trim();
@@ -41,6 +43,9 @@ export default function AddMedicineScreen({ navigation, route }) {
   const [name, setName] = useState("");
   const [expiry, setExpiry] = useState("");
   const [quantity, setQuantity] = useState("1");
+  const [members, setMembers] = useState([]);
+  const [selectedMemberId, setSelectedMemberId] = useState("self");
+
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -61,6 +66,22 @@ export default function AddMedicineScreen({ navigation, route }) {
   useEffect(() => {
     entranceAnimation(fadeAnim, slideAnim).start();
   }, []);
+
+  useEffect(() => {
+    loadFamilyMembers();
+  }, []);
+
+  async function loadFamilyMembers() {
+    try {
+      const stored = await AsyncStorage.getItem(FAMILY_MEMBERS_KEY);
+
+      if (stored) {
+        setMembers(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
 
   useEffect(() => {
     if (route?.params?.prefill) {
@@ -177,11 +198,19 @@ export default function AddMedicineScreen({ navigation, route }) {
     pressAnimation(saveBtnScale, 0.97).start();
     setLoading(true);
 
+    const ownerName =
+      selectedMemberId === "self"
+        ? "Self"
+        : members.find((m) => m.id === selectedMemberId)?.relationship ||
+          "Self";
+
     const newMedicine = {
       id: Date.now().toString(),
-      name: name.trim(),
-      expiry: normalizedExpiry,
-      quantity: parseInt(quantity),
+      name,
+      quantity,
+      expiry,
+      ownerId: selectedMemberId,
+      ownerName,
     };
 
     await addMedicine(newMedicine);
@@ -361,6 +390,58 @@ export default function AddMedicineScreen({ navigation, route }) {
             </View>
           </View>
 
+          {/* Assign To */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>ASSIGN TO</Text>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                gap: 8,
+                paddingVertical: 4,
+              }}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.memberChip,
+                  selectedMemberId === "SELF" && styles.memberChipActive,
+                ]}
+                onPress={() => setSelectedMemberId("SELF")}
+              >
+                <Text
+                  style={[
+                    styles.memberChipText,
+                    selectedMemberId === "SELF" && styles.memberChipTextActive,
+                  ]}
+                >
+                  Self
+                </Text>
+              </TouchableOpacity>
+
+              {members.map((member) => (
+                <TouchableOpacity
+                  key={member.id}
+                  style={[
+                    styles.memberChip,
+                    selectedMemberId === member.id && styles.memberChipActive,
+                  ]}
+                  onPress={() => setSelectedMemberId(member.id)}
+                >
+                  <Text
+                    style={[
+                      styles.memberChipText,
+                      selectedMemberId === member.id &&
+                        styles.memberChipTextActive,
+                    ]}
+                  >
+                    {member.relationship || member.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
           {/* Save Row */}
           <View style={styles.saveRow}>
             <Animated.View
@@ -436,6 +517,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#0d0d0f",
   },
+  memberChip: {
+    backgroundColor: "#161620",
+    borderWidth: 1,
+    borderColor: "#222230",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+
+  memberChipActive: {
+    backgroundColor: "#9b8fff",
+    borderColor: "#9b8fff",
+  },
+
+  memberChipText: {
+    color: "#aaaacc",
+    fontWeight: "600",
+  },
+
+  memberChipTextActive: {
+    color: "#ffffff",
+  },
+
   screenWrapper: { flex: 1 },
   header: {
     flexDirection: "row",

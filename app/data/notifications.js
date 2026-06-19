@@ -9,12 +9,22 @@ export async function scheduleMedicineAlerts(medicine) {
   const expiry = new Date(medicine.expiry);
   await cancelMedicineAlerts(medicine.id);
 
-  const alerts = [
-    { days: 30, message: `${medicine.name} expires in 30 days` },
-    { days: 7, message: `${medicine.name} expires in 7 days — restock soon!` },
-    { days: 1, message: `${medicine.name} expires tomorrow! ⚠️` },
-  ];
+  const ownerLabel = medicine.ownerName || "Self";
 
+  const alerts = [
+    {
+      days: 30,
+      message: `${medicine.name} for ${ownerLabel} expires in 30 days`,
+    },
+    {
+      days: 7,
+      message: `${medicine.name} for ${ownerLabel} expires in 7 days`,
+    },
+    {
+      days: 1,
+      message: `${medicine.name} for ${ownerLabel} expires tomorrow`,
+    },
+  ];
   for (const alert of alerts) {
     const triggerDate = new Date(expiry);
     triggerDate.setDate(triggerDate.getDate() - alert.days);
@@ -25,10 +35,16 @@ export async function scheduleMedicineAlerts(medicine) {
       await Notifications.scheduleNotificationAsync({
         identifier: `${medicine.id}-${alert.days}`,
         content: {
-          title: "💊 MediTrack Alert",
+          title: "Medicine Expiry Alert",
           body: alert.message,
           sound: true,
           priority: "high",
+          data: {
+            medicineId: medicine.id,
+            medicineName: medicine.name,
+            ownerName: ownerLabel,
+            type: "expiry",
+          },
         },
         trigger: {
           type: "date",

@@ -13,6 +13,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { getMedicines } from "../data/storage";
 import PillLogo from "../components/PillLogo";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 function getStatus(expiryDate) {
   const today = new Date();
@@ -41,11 +42,15 @@ function getStatus(expiryDate) {
 }
 
 const FILTERS = ["ALL", "EXPIRED", "SOON", "SAFE"];
+const FAMILY_MEMBERS_KEY = "meditrack_family_members";
 
 export default function MedicationScreen({ navigation }) {
   const [medicines, setMedicines] = useState([]);
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+  const [members, setMembers] = useState([]);
+  const [selectedMember, setSelectedMember] = useState("ALL");
+  const [showMemberDropdown, setShowMemberDropdown] = useState(false);
   const insets = useSafeAreaInsets();
 
   useFocusEffect(
@@ -53,6 +58,16 @@ export default function MedicationScreen({ navigation }) {
       async function load() {
         const data = await getMedicines();
         setMedicines(data);
+
+        const storedMembers = await AsyncStorage.getItem(FAMILY_MEMBERS_KEY);
+
+        if (storedMembers) {
+          try {
+            setMembers(JSON.parse(storedMembers));
+          } catch {
+            setMembers([]);
+          }
+        }
       }
       load();
     }, []),
@@ -71,11 +86,22 @@ export default function MedicationScreen({ navigation }) {
       ? sorted
       : sorted.filter((m) => getStatus(m.expiry).label === activeFilter);
 
+  const memberFiltered =
+    selectedMember === "ALL"
+      ? filterApplied
+      : filterApplied.filter((m) => {
+          if (selectedMember === "SELF") {
+            return !m.ownerId || m.ownerId === "self";
+          }
+
+          return m.ownerId === selectedMember;
+        });
+
   const displayed = searchQuery.trim()
-    ? filterApplied.filter((m) =>
+    ? memberFiltered.filter((m) =>
         m.name.toLowerCase().includes(searchQuery.toLowerCase()),
       )
-    : filterApplied;
+    : memberFiltered;
 
   const counts = {
     ALL: medicines.length,
@@ -127,8 +153,10 @@ export default function MedicationScreen({ navigation }) {
             <TouchableOpacity
               key={f}
               style={[styles.filterTab, isActive && styles.filterTabActive]}
-              onPress={() => setActiveFilter(f)}
-              activeOpacity={0.7}
+              onPress={() => {
+                setActiveFilter(f);
+                setShowMemberDropdown(false);
+              }}
             >
               <Text
                 style={[
@@ -160,7 +188,7 @@ export default function MedicationScreen({ navigation }) {
         })}
       </View>
 
-      {/* ── Search + Add ── */}
+      {/* ── Search + Member Filter + Add ── */}
       <View style={styles.searchRow}>
         <View style={styles.searchBar}>
           <Ionicons
@@ -169,6 +197,7 @@ export default function MedicationScreen({ navigation }) {
             color="#555568"
             style={{ marginRight: 8 }}
           />
+
           <TextInput
             style={styles.searchInput}
             placeholder="Search medicines..."
@@ -177,12 +206,69 @@ export default function MedicationScreen({ navigation }) {
             onChangeText={setSearchQuery}
             returnKeyType="search"
           />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <Ionicons name="close-circle" size={15} color="#555568" />
-            </TouchableOpacity>
+        </View>
+
+        <View style={styles.memberDropdownWrapper}>
+          <TouchableOpacity
+            style={styles.memberDropdownBtn}
+            onPress={() => setShowMemberDropdown(!showMemberDropdown)}
+          >
+            <Text style={styles.memberDropdownText}>
+              {selectedMember === "ALL"
+                ? "All"
+                : selectedMember === "SELF"
+                  ? "Self"
+                  : members.find((m) => m.id === selectedMember)
+                      ?.relationship || "All"}
+            </Text>
+
+            <Ionicons
+              name={showMemberDropdown ? "chevron-up" : "chevron-down"}
+              size={16}
+              color="#9b8fff"
+            />
+          </TouchableOpacity>
+
+          {showMemberDropdown && (
+            <View style={styles.memberDropdownMenu}>
+              <TouchableOpacity
+                style={styles.memberOption}
+                onPress={() => {
+                  setSelectedMember("ALL");
+                  setShowMemberDropdown(false);
+                }}
+              >
+                <Text style={styles.memberOptionText}>All Members</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.memberOption}
+                onPress={() => {
+                  setSelectedMember("SELF");
+                  setShowMemberDropdown(false);
+                }}
+              >
+                <Text style={styles.memberOptionText}>Self</Text>
+              </TouchableOpacity>
+
+              {members.map((member) => (
+                <TouchableOpacity
+                  key={member.id}
+                  style={styles.memberOption}
+                  onPress={() => {
+                    setSelectedMember(member.id);
+                    setShowMemberDropdown(false);
+                  }}
+                >
+                  <Text style={styles.memberOptionText}>
+                    {member.relationship}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           )}
         </View>
+
         <TouchableOpacity
           style={styles.addBtn}
           onPress={() => navigation.navigate("AddMedicine")}
@@ -263,7 +349,14 @@ export default function MedicationScreen({ navigation }) {
                 <Text style={styles.cardName} numberOfLines={1}>
                   {item.name}
                 </Text>
-                <Text style={styles.cardSub}>{item.quantity} units left</Text>
+                <Text style={styles.cardSub}>
+                  {item.ownerId
+                    ? members.find((m) => m.id === item.ownerId)
+                        ?.relationship || "Self"
+                    : "Self"}
+                  {" • "}
+                  {item.quantity} units left
+                </Text>
               </View>
 
               <View style={styles.cardRight}>
@@ -341,6 +434,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
+  memberDropdownWrapper: {
+    position: "relative",
+  },
   filterRow: {
     flexDirection: "row",
     paddingHorizontal: 20,
@@ -455,4 +551,51 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   emptySubText: { fontSize: 13, color: "#555568", textAlign: "center" },
+
+  memberDropdownBtn: {
+    height: 46,
+    backgroundColor: "#161620",
+    borderWidth: 1,
+    borderColor: "#222230",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: 90,
+  },
+
+  memberDropdownText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+    marginRight: 6,
+  },
+
+  memberDropdownMenu: {
+    position: "absolute",
+    top: 52,
+    right: 0,
+    width: 120,
+    backgroundColor: "#161620",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#222230",
+    overflow: "hidden",
+    zIndex: 999,
+    elevation: 20,
+  },
+
+  memberOption: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#222230",
+  },
+
+  memberOptionText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });

@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import PillLogo from "../components/PillLogo";
 import { entranceAnimation, pressAnimation } from "../motion";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Accepts multiple date formats and normalizes to YYYY-MM-DD
 function normalizeDate(input) {
@@ -48,6 +49,11 @@ export default function EditMedicineScreen({ navigation, route }) {
     medicine.expiry ? new Date(medicine.expiry) : new Date(),
   );
 
+  const [members, setMembers] = useState([]);
+  const [selectedOwner, setSelectedOwner] = useState(
+    medicine.ownerId || "SELF",
+  );
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(10)).current;
   const saveBtnScale = useRef(new Animated.Value(1)).current;
@@ -57,7 +63,21 @@ export default function EditMedicineScreen({ navigation, route }) {
   // Run entrance on mount
   useEffect(() => {
     entranceAnimation(fadeAnim, slideAnim).start();
+
+    loadMembers();
   }, []);
+
+  async function loadMembers() {
+    try {
+      const stored = await AsyncStorage.getItem("meditrack_family_members");
+
+      if (stored) {
+        setMembers(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
 
   async function handleCalendarPress() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -112,11 +132,18 @@ export default function EditMedicineScreen({ navigation, route }) {
     pressAnimation(saveBtnScale, 0.97).start();
     setLoading(true);
 
+    const ownerName =
+      selectedMember === "SELF"
+        ? "Self"
+        : members.find((m) => m.id === selectedMember)?.relationship || "Self";
+
     const updatedMedicine = {
-      id: medicine.id,
-      name: name.trim(),
-      expiry: normalizedExpiry,
-      quantity: parseInt(quantity),
+      ...medicine,
+      name,
+      quantity,
+      expiry,
+      ownerId: selectedMember,
+      ownerName,
     };
 
     await updateMedicine(updatedMedicine);
@@ -193,6 +220,51 @@ export default function EditMedicineScreen({ navigation, route }) {
                 {medicine.name}
               </Text>
             </View>
+          </View>
+
+          {/* ── Assign To ── */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>ASSIGN TO</Text>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <TouchableOpacity
+                style={[
+                  styles.memberChip,
+                  selectedOwner === "SELF" && styles.memberChipActive,
+                ]}
+                onPress={() => setSelectedOwner("SELF")}
+              >
+                <Text
+                  style={[
+                    styles.memberChipText,
+                    selectedOwner === "SELF" && styles.memberChipTextActive,
+                  ]}
+                >
+                  Self
+                </Text>
+              </TouchableOpacity>
+
+              {members.map((member) => (
+                <TouchableOpacity
+                  key={member.id}
+                  style={[
+                    styles.memberChip,
+                    selectedOwner === member.id && styles.memberChipActive,
+                  ]}
+                  onPress={() => setSelectedOwner(member.id)}
+                >
+                  <Text
+                    style={[
+                      styles.memberChipText,
+                      selectedOwner === member.id &&
+                        styles.memberChipTextActive,
+                    ]}
+                  >
+                    {member.relationship}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
 
           {/* ── Medicine Name ── */}
@@ -500,5 +572,30 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "#3a3a50",
+  },
+
+  memberChip: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: "#161620",
+    borderWidth: 1,
+    borderColor: "#222230",
+    marginRight: 10,
+  },
+
+  memberChipActive: {
+    backgroundColor: "#9b8fff",
+    borderColor: "#9b8fff",
+  },
+
+  memberChipText: {
+    color: "#aaaacc",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+
+  memberChipTextActive: {
+    color: "#ffffff",
   },
 });

@@ -16,6 +16,7 @@ import EditMedicineScreen from "./app/screens/EditMedicineScreen";
 import MedicineDetailScreen from "./app/screens/MedicineDetailScreen";
 import NotificationScreen from "./app/screens/NotificationScreen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import FamilyMembersScreen from "./app/screens/FamilyMembersScreen";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -101,6 +102,11 @@ export default function App() {
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen name="MainTabs" component={MainTabs} />
+          <Stack.Screen
+            name="FamilyMembers"
+            component={FamilyMembersScreen}
+            options={{ animation: "slide_from_right" }}
+          />
           <Stack.Screen
             name="AddMedicine"
             component={AddMedicineScreen}

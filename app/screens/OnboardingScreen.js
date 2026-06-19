@@ -216,10 +216,8 @@ export default function OnboardingScreen({ navigation }) {
 
               {index === 1 ? (
                 <Text style={styles.slideSubtitle}>
-                  Just scan your medicine strip. We'll handle{" "}
-                  <Text style={{ color: "#ffffff", fontWeight: "700" }}>
-                    expiry tracking
-                  </Text>{" "}
+                  Just scan your medicine strip. We'll handle
+                  <Text style={{ color: "#ffffff", fontWeight: "700" }}> expiry tracking </Text>
                   and refill alerts for you.
                 </Text>
               ) : (

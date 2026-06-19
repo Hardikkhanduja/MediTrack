@@ -6,7 +6,6 @@ import {
   StatusBar,
   TextInput,
   Modal,
-  LayoutAnimation,
   ScrollView,
   Animated,
 } from "react-native";
@@ -193,6 +192,7 @@ export default function HomeScreen({ navigation }) {
   const [medicineToDelete, setMedicineToDelete] = useState(null);
   const [takenMap, setTakenMap] = useState({});
   const [reminderMap, setReminderMap] = useState({});
+  const [members, setMembers] = useState([]);
 
   // Screen entrance
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -211,8 +211,29 @@ export default function HomeScreen({ navigation }) {
 
       loadMedicines();
       loadTakenStatus();
+      loadMembers();
     }, []),
   );
+
+  async function loadMembers() {
+    try {
+      const stored = await AsyncStorage.getItem("meditrack_family_members");
+
+      if (stored) {
+        setMembers(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  function getOwnerLabel(medicine) {
+    if (!medicine.ownerId) return "Self";
+
+    const member = members.find((m) => m.id === medicine.ownerId);
+
+    return member?.relationship || "Self";
+  }
 
   async function loadMedicines() {
     const data = await getMedicines();
@@ -342,9 +363,14 @@ export default function HomeScreen({ navigation }) {
   });
 
   const filtered = searchQuery.trim()
-    ? sorted.filter((m) =>
-        m.name.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
+    ? sorted.filter((m) => {
+        const owner = getOwnerLabel(m).toLowerCase();
+
+        return (
+          m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          owner.includes(searchQuery.toLowerCase())
+        );
+      })
     : sorted;
 
   const expiredList = sorted.filter(
@@ -467,7 +493,7 @@ export default function HomeScreen({ navigation }) {
               />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search your medicines..."
+                placeholder="Search medicines or family members..."
                 placeholderTextColor="#555568"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -583,7 +609,8 @@ export default function HomeScreen({ navigation }) {
                                     {item.name}
                                   </Text>
                                   <Text style={styles.urgentDays}>
-                                    Expires in {status.days} days
+                                    {getOwnerLabel(item)} • Expires in{" "}
+                                    {status.days} days
                                   </Text>
                                 </View>
                                 <View style={styles.urgentPillWrapper}>
@@ -625,6 +652,7 @@ export default function HomeScreen({ navigation }) {
                       { marginHorizontal: contentPadding },
                     ]}
                     activeOpacity={0.8}
+                    onPress={() => navigation.navigate("Medication")}
                   >
                     <Ionicons
                       name="warning-outline"
@@ -714,9 +742,10 @@ export default function HomeScreen({ navigation }) {
                           }
                           activeOpacity={0.75}
                         >
-                          <Text style={styles.lowStockName} numberOfLines={1}>
-                            {item.name}
+                          <Text style={styles.lowStockName}>
+                            {getOwnerLabel(item)} • {item.name}
                           </Text>
+
                           <Text
                             style={[
                               styles.lowStockMeta,
@@ -838,13 +867,8 @@ export default function HomeScreen({ navigation }) {
                               }
                               if (!reminderMap[item.id]) {
                                 return (
-                                  <Text
-                                    style={[
-                                      styles.cardSub,
-                                      styles.expiryOnlyText,
-                                    ]}
-                                  >
-                                    Expiry monitored
+                                  <Text style={styles.cardSub}>
+                                    {getOwnerLabel(item)} • Expiry monitored
                                   </Text>
                                 );
                               }
@@ -863,7 +887,8 @@ export default function HomeScreen({ navigation }) {
                               }
                               return (
                                 <Text style={styles.cardSub}>
-                                  {item.quantity} units left
+                                  {getOwnerLabel(item)} • {item.quantity} units
+                                  left
                                 </Text>
                               );
                             })()}

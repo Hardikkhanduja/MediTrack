@@ -152,7 +152,6 @@ export default function SettingsScreen({ navigation }) {
             <Text style={styles.profileEditHint}>Tap to edit</Text>
           ) : null}
         </TouchableOpacity>
-
         {/* ── PREFERENCES ── */}
         <Text style={styles.sectionLabel}>PREFERENCES</Text>
         <View style={styles.card}>
@@ -177,7 +176,6 @@ export default function SettingsScreen({ navigation }) {
             />
           </View>
         </View>
-
         {/* ── PRIVACY ── */}
         <Text style={styles.sectionLabel}>PRIVACY</Text>
         <View style={styles.card}>
@@ -203,6 +201,35 @@ export default function SettingsScreen({ navigation }) {
             </View>
           </View>
         </View>
+
+
+        {/* ── FAMILY CABINET ── */}
+        <Text style={styles.sectionLabel}>FAMILY CABINET</Text>
+        <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.legalRow}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate("FamilyMembers")}
+          >
+            <View style={styles.settingIconBox}>
+              <Ionicons name="people-outline" size={18} color="#9b8fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.legalTitle}>Manage Members</Text>
+              <Text
+                style={{
+                  fontSize: 12,
+                  color: "#555568",
+                  marginTop: 2,
+                }}
+              >
+                Add and organize family members for medicine tracking
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#555568" />
+          </TouchableOpacity>
+        </View>
+
 
         {/* ── LEGAL & INFORMATION ── */}
         <Text style={styles.sectionLabel}>LEGAL & INFORMATION</Text>
@@ -237,7 +264,6 @@ export default function SettingsScreen({ navigation }) {
             <Ionicons name="chevron-forward" size={18} color="#555568" />
           </TouchableOpacity>
         </View>
-
         {/* ── App Info ── */}
         <View style={styles.appInfo}>
           <View style={styles.appIconBox}>
@@ -251,7 +277,6 @@ export default function SettingsScreen({ navigation }) {
           <Text style={styles.appName}>MediTrack</Text>
           <Text style={styles.appVersion}>VERSION 1.0</Text>
         </View>
-
         <View style={{ height: 110 }} />
       </ScrollView>
 

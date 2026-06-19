@@ -12,6 +12,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { getMedicines } from "../data/storage";
 import PillLogo from "../components/PillLogo";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 function getStatus(expiryDate) {
   const today = new Date();
@@ -51,16 +52,43 @@ function MedicineIconBox({ status }) {
   );
 }
 
+async function loadMembers(setMembers) {
+  try {
+    const stored = await AsyncStorage.getItem("meditrack_family_members");
+
+    if (stored) {
+      setMembers(JSON.parse(stored));
+    }
+  } catch (error) {
+    console.log(error);
+  }
+}
+
 export default function NotificationScreen({ navigation }) {
   const [medicines, setMedicines] = useState([]);
+  const [members, setMembers] = useState([]);
   const insets = useSafeAreaInsets();
+
+  function getOwnerLabel(medicine) {
+    if (!medicine.ownerId) return "Self";
+
+    const member = members.find(
+      (m) => String(m.id) === String(medicine.ownerId),
+    );
+
+    return member?.relationship || "Self";
+  }
 
   useFocusEffect(
     useCallback(() => {
       async function load() {
         const data = await getMedicines();
+
         setMedicines(data);
+
+        await loadMembers(setMembers);
       }
+
       load();
     }, []),
   );
@@ -105,7 +133,9 @@ export default function NotificationScreen({ navigation }) {
           <Text style={styles.cardName} numberOfLines={1}>
             {item.name}
           </Text>
-          <Text style={styles.cardSub}>{item.quantity} units left</Text>
+          <Text style={styles.cardSub}>
+            {getOwnerLabel(item)} • {item.quantity} units left
+          </Text>
         </View>
         <Text style={[styles.cardLabel, { color: labelColor }]}>{label}</Text>
       </TouchableOpacity>
@@ -236,6 +266,10 @@ export default function NotificationScreen({ navigation }) {
                         year: "numeric",
                       })}
                     </Text>
+
+                    <Text style={styles.laterOwner}>
+                      For {getOwnerLabel(item)}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
@@ -311,8 +345,8 @@ const styles = StyleSheet.create({
   sectionDot: { width: 10, height: 10, borderRadius: 5 },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: "600",  
-    color: "#ccccdd",  
+    fontWeight: "600",
+    color: "#ccccdd",
   },
 
   cardGroup: {
@@ -326,7 +360,7 @@ const styles = StyleSheet.create({
   notifCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 14,  
+    padding: 14,
     gap: 14,
     borderBottomWidth: 1,
     borderBottomColor: "#1e1e2e",
@@ -341,8 +375,8 @@ const styles = StyleSheet.create({
   cardInfo: { flex: 1 },
   cardName: {
     fontSize: 14,
-    fontWeight: "500",  
-    color: "#e0e0f0", 
+    fontWeight: "500",
+    color: "#e0e0f0",
     marginBottom: 3,
   },
   cardSub: {
@@ -351,8 +385,8 @@ const styles = StyleSheet.create({
     color: "#555568",
   },
   cardLabel: {
-    fontSize: 12, 
-    fontWeight: "500", 
+    fontSize: 12,
+    fontWeight: "500",
   },
 
   laterCard: {
@@ -376,13 +410,13 @@ const styles = StyleSheet.create({
   },
   laterTag: {
     fontSize: 10,
-    fontWeight: "600",  
-    color: "#555568",  
+    fontWeight: "600",
+    color: "#555568",
     letterSpacing: 0.8,
   },
   laterName: {
-    fontSize: 14,  
-    fontWeight: "500", 
+    fontSize: 14,
+    fontWeight: "500",
     color: "#e0e0f0",
     marginBottom: 4,
   },
@@ -400,4 +434,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptySubText: { fontSize: 13, color: "#555568", textAlign: "center" },
+  laterOwner: {
+  fontSize: 11,
+  color: "#6e6e88",
+  marginTop: 4,
+},
 });

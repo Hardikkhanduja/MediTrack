@@ -23,7 +23,6 @@ import {
   configureLayoutTransition,
   DURATION,
   EASE,
-  SPRING_RELEASE,
 } from "../motion";
 import { useLayout } from "../layout";
 import { getStockStatus } from "../stock";
@@ -60,13 +59,13 @@ function formatTime(date) {
 }
 
 export default function MedicineDetailScreen({ route, navigation }) {
-  const { medicine } = route.params;
+  const { medicine } = route.params; 
+  const ownerLabel = medicine.ownerName || "Self";
   const status = getStatus(medicine.expiry);
   const isExpired = status.label === "EXPIRED";
   const stockStatus = getStockStatus(medicine.quantity);
   const layout = useLayout();
-  const { contentPadding, maxContentWidth, useDetailSideBySide, isTablet, fs } =
-    layout;
+  const { contentPadding, maxContentWidth, useDetailSideBySide, fs } = layout;
 
   const [reminders, setReminders] = useState([]);
   const [showPicker, setShowPicker] = useState(false);
@@ -80,7 +79,6 @@ export default function MedicineDetailScreen({ route, navigation }) {
 
   // Animation
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const glowAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(10)).current;
   // Taken pill opacity cross-fade
@@ -181,27 +179,8 @@ export default function MedicineDetailScreen({ route, navigation }) {
       loadWeekHistory();
 
       takenOpacity.setValue(0);
-
-      startGlowAnimation();
     }, []),
   );
-
-  function startGlowAnimation() {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, {
-          toValue: 1,
-          duration: 1800,
-          useNativeDriver: true,
-        }),
-        Animated.timing(glowAnim, {
-          toValue: 0,
-          duration: 1800,
-          useNativeDriver: true,
-        }),
-      ]),
-    ).start();
-  }
 
   async function loadTakenStatus() {
     try {
@@ -378,9 +357,14 @@ export default function MedicineDetailScreen({ route, navigation }) {
         await Notifications.scheduleNotificationAsync({
           identifier: editingId,
           content: {
-            title: "💊 Time to take your medicine!",
-            body: `Don't forget to take ${medicine.name}`,
+            title: "Medicine Reminder",
+            body: `${medicine.name} for ${ownerLabel}`,
             sound: true,
+            data: {
+              medicineId: medicine.id,
+              medicineName: medicine.name,
+              ownerName: ownerLabel,
+            },
           },
           trigger: {
             type: "daily",
@@ -401,9 +385,14 @@ export default function MedicineDetailScreen({ route, navigation }) {
         await Notifications.scheduleNotificationAsync({
           identifier: id,
           content: {
-            title: "💊 Time to take your medicine!",
-            body: `Don't forget to take ${medicine.name}`,
+            title: "Medicine Reminder",
+            body: `${medicine.name} for ${ownerLabel}`,
             sound: true,
+            data: {
+              medicineId: medicine.id,
+              medicineName: medicine.name,
+              ownerName: ownerLabel,
+            },
           },
           trigger: {
             type: "daily",
@@ -416,9 +405,14 @@ export default function MedicineDetailScreen({ route, navigation }) {
         console.log("Notification error:", e);
       }
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const medicineLabel =
+        ownerLabel === "Self"
+          ? medicine.name
+          : `${ownerLabel}'s ${medicine.name}`;
+
       showSuccessModal(
         "Reminder Set!",
-        `You'll be reminded every day at ${label}`,
+        `You'll receive a daily reminder at ${label} for ${medicineLabel}.`,
         "#9b8fff",
       );
     }
@@ -461,11 +455,6 @@ export default function MedicineDetailScreen({ route, navigation }) {
     );
   }
 
-  const glowOpacity = glowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 0.8],
-  });
-
   const pillLeft =
     status.label === "EXPIRED"
       ? "#c94444"
@@ -479,6 +468,7 @@ export default function MedicineDetailScreen({ route, navigation }) {
         ? "#6a4208"
         : "#145030";
 
+  
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0d0d0f" />
@@ -631,6 +621,7 @@ export default function MedicineDetailScreen({ route, navigation }) {
                       })}
                     </Text>
                   </View>
+
                   <View style={styles.infoDivider} />
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>QUANTITY</Text>
@@ -660,6 +651,11 @@ export default function MedicineDetailScreen({ route, navigation }) {
                         : `${status.days}d`}
                     </Text>
                   </View>
+                </View>
+                <View style={styles.assignedContainer}>
+                  <Text style={styles.assignedText}>
+                    Assigned to: {ownerLabel}
+                  </Text>
                 </View>
               </View>
 
@@ -1288,8 +1284,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#9b8fff80",
   },
-  weekDotTaken: { backgroundColor: "#2ea86e" },
-  weekDotPast: { backgroundColor: "#2ea86e55" },
+  weekDotTaken: { backgroundColor: "#2ea86e" }, 
   weekDayLabel: { fontSize: 10, color: "#555568", fontWeight: "600" },
 
   // Reminders — marginHorizontal applied inline from layout
@@ -1518,5 +1513,19 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 14,
     fontWeight: "700",
+  },
+
+  assignedContainer: {
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#222230",
+    paddingTop: 12,
+    alignItems: "center",
+  },
+
+  assignedText: {
+    color: "#6e6e88",
+    fontSize: 12,
+    fontWeight: "500",
   },
 });
