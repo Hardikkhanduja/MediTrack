@@ -59,11 +59,6 @@ function formatTime(date) {
 }
 
 export default function MedicineDetailScreen({ route, navigation }) {
-  const { medicine } = route.params; 
-  const ownerLabel = medicine.ownerName || "Self";
-  const status = getStatus(medicine.expiry);
-  const isExpired = status.label === "EXPIRED";
-  const stockStatus = getStockStatus(medicine.quantity);
   const layout = useLayout();
   const { contentPadding, maxContentWidth, useDetailSideBySide, fs } = layout;
 
@@ -95,8 +90,19 @@ export default function MedicineDetailScreen({ route, navigation }) {
     confirmText: "Yes",
   });
 
-  const [weekHistory, setWeekHistory] = useState([]);
+  const { medicine } = route.params;
 
+  const [weekHistory, setWeekHistory] = useState([]);
+  const [currentMedicine, setCurrentMedicine] = useState(medicine);
+
+  if (!currentMedicine) {
+    return null;
+  }
+
+  const ownerLabel = currentMedicine.ownerName || "Self";
+  const status = getStatus(currentMedicine.expiry);
+  const isExpired = status.label === "EXPIRED";
+  const stockStatus = getStockStatus(currentMedicine.quantity);
   const insets = useSafeAreaInsets();
 
   function closeCustomModal() {
@@ -135,13 +141,31 @@ export default function MedicineDetailScreen({ route, navigation }) {
 
         history.push({
           date: new Date(checkDate),
-          taken: !!map[medicine.id],
+          taken: !!map[currentMedicine.id],
         });
       }
 
       setWeekHistory(history);
     } catch (e) {
       console.log("Error loading week history", e);
+    }
+  }
+
+  async function loadLatestMedicine() {
+    try {
+      const stored = await AsyncStorage.getItem("medicines");
+
+      if (!stored) return;
+
+      const medicines = JSON.parse(stored);
+
+      const updated = medicines.find((m) => m.id === medicine.id);
+
+      if (updated) { 
+        setCurrentMedicine(updated);
+      }
+    } catch (e) {
+      console.log("Error loading latest medicine", e);
     }
   }
   function showConfirmModal(
@@ -169,16 +193,21 @@ export default function MedicineDetailScreen({ route, navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      // Reset + run screen entrance
-      fadeAnim.setValue(0);
-      slideAnim.setValue(10);
-      entranceAnimation(fadeAnim, slideAnim).start();
+      async function refreshScreen() {
+        fadeAnim.setValue(0);
+        slideAnim.setValue(10);
 
-      loadReminders();
-      loadTakenStatus();
-      loadWeekHistory();
+        entranceAnimation(fadeAnim, slideAnim).start();
 
-      takenOpacity.setValue(0);
+        await loadLatestMedicine();
+        await loadReminders();
+        await loadTakenStatus();
+        await loadWeekHistory();
+
+        takenOpacity.setValue(0);
+      }
+
+      refreshScreen();
     }, []),
   );
 
@@ -186,9 +215,13 @@ export default function MedicineDetailScreen({ route, navigation }) {
     try {
       const stored = await AsyncStorage.getItem(getTodayKey());
       const takenMap = stored ? JSON.parse(stored) : {};
-      const streakData = await AsyncStorage.getItem(`streak_${medicine.id}`);
-      const timeData = await AsyncStorage.getItem(`takenTime_${medicine.id}`);
-      const isTaken = !!takenMap[medicine.id];
+      const streakData = await AsyncStorage.getItem(
+        `streak_${currentMedicine.id}`,
+      );
+      const timeData = await AsyncStorage.getItem(
+        `takenTime_${currentMedicine.id}`,
+      );
+      const isTaken = !!takenMap[currentMedicine.id];
 
       setTakenToday(isTaken);
       // Sync opacity to loaded state without animating
@@ -218,12 +251,15 @@ export default function MedicineDetailScreen({ route, navigation }) {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         pressAnimation(scaleAnim, 0.97).start();
 
-        delete takenMap[medicine.id];
+        delete takenMap[currentMedicine.id];
         await AsyncStorage.setItem(getTodayKey(), JSON.stringify(takenMap));
 
         const newStreak = Math.max(0, streak - 1);
-        await AsyncStorage.setItem(`streak_${medicine.id}`, String(newStreak));
-        await AsyncStorage.removeItem(`takenTime_${medicine.id}`);
+        await AsyncStorage.setItem(
+          `streak_${currentMedicine.id}`,
+          String(newStreak),
+        );
+        await AsyncStorage.removeItem(`takenTime_${currentMedicine.id}`);
 
         // Fade out to pending opacity
         Animated.timing(takenOpacity, {
@@ -249,11 +285,11 @@ export default function MedicineDetailScreen({ route, navigation }) {
 
       const timeStr = formatTime(now);
 
-      takenMap[medicine.id] = true;
+      takenMap[currentMedicine.id] = true;
 
       await AsyncStorage.setItem(getTodayKey(), JSON.stringify(takenMap));
 
-      await AsyncStorage.setItem(`takenTime_${medicine.id}`, timeStr);
+      await AsyncStorage.setItem(`takenTime_${currentMedicine.id}`, timeStr);
 
       // STREAK LOGIC
       const yesterday = new Date();
@@ -266,11 +302,14 @@ export default function MedicineDetailScreen({ route, navigation }) {
 
       const yMap = yStored ? JSON.parse(yStored) : {};
 
-      const takenYesterday = !!yMap[medicine.id];
+      const takenYesterday = !!yMap[currentMedicine.id];
 
       const newStreak = takenYesterday ? streak + 1 : 1;
 
-      await AsyncStorage.setItem(`streak_${medicine.id}`, String(newStreak));
+      await AsyncStorage.setItem(
+        `streak_${currentMedicine.id}`,
+        String(newStreak),
+      );
 
       // Fade in to full opacity on taken
       Animated.timing(takenOpacity, {
@@ -292,7 +331,9 @@ export default function MedicineDetailScreen({ route, navigation }) {
 
   async function loadReminders() {
     try {
-      const stored = await AsyncStorage.getItem(`reminders_${medicine.id}`);
+      const stored = await AsyncStorage.getItem(
+        `reminders_${currentMedicine.id}`,
+      );
       if (stored) setReminders(JSON.parse(stored));
     } catch (e) {
       console.log("Error loading reminders", e);
@@ -303,7 +344,7 @@ export default function MedicineDetailScreen({ route, navigation }) {
     configureLayoutTransition();
     setReminders(updated);
     await AsyncStorage.setItem(
-      `reminders_${medicine.id}`,
+      `reminders_${currentMedicine.id}`,
       JSON.stringify(updated),
     );
   }
@@ -358,11 +399,11 @@ export default function MedicineDetailScreen({ route, navigation }) {
           identifier: editingId,
           content: {
             title: "Medicine Reminder",
-            body: `${medicine.name} for ${ownerLabel}`,
+            body: `${currentMedicine.name} for ${ownerLabel}`,
             sound: true,
             data: {
-              medicineId: medicine.id,
-              medicineName: medicine.name,
+              medicineId: currentMedicine.id,
+              medicineName: currentMedicine.name,
               ownerName: ownerLabel,
             },
           },
@@ -377,7 +418,7 @@ export default function MedicineDetailScreen({ route, navigation }) {
         console.log("Notification error:", e);
       }
     } else {
-      const id = `${medicine.id}_${Date.now()}`;
+      const id = `${currentMedicine.id}_${Date.now()}`;
       const newReminder = { id, hour: hours, minute: minutes, label };
       const updated = [...reminders, newReminder];
       await saveReminders(updated);
@@ -386,11 +427,11 @@ export default function MedicineDetailScreen({ route, navigation }) {
           identifier: id,
           content: {
             title: "Medicine Reminder",
-            body: `${medicine.name} for ${ownerLabel}`,
+            body: `${currentMedicine.name} for ${ownerLabel}`,
             sound: true,
             data: {
-              medicineId: medicine.id,
-              medicineName: medicine.name,
+              medicineId: currentMedicine.id,
+              medicineName: currentMedicine.name,
               ownerName: ownerLabel,
             },
           },
@@ -407,8 +448,8 @@ export default function MedicineDetailScreen({ route, navigation }) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const medicineLabel =
         ownerLabel === "Self"
-          ? medicine.name
-          : `${ownerLabel}'s ${medicine.name}`;
+          ? currentMedicine.name
+          : `${ownerLabel}'s ${currentMedicine.name}`;
 
       showSuccessModal(
         "Reminder Set!",
@@ -440,7 +481,7 @@ export default function MedicineDetailScreen({ route, navigation }) {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     showConfirmModal(
       "Clear All Reminders",
-      `Remove all reminders for ${medicine.name}?`,
+      `Remove all reminders for ${currentMedicine.name}?`,
       async () => {
         for (const r of reminders) {
           try {
@@ -468,7 +509,6 @@ export default function MedicineDetailScreen({ route, navigation }) {
         ? "#6a4208"
         : "#145030";
 
-  
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0d0d0f" />
@@ -526,7 +566,9 @@ export default function MedicineDetailScreen({ route, navigation }) {
               <TouchableOpacity
                 style={styles.editBtn}
                 onPress={() =>
-                  navigation.navigate("EditMedicine", { medicine })
+                  navigation.navigate("EditMedicine", {
+                    medicine: currentMedicine,
+                  })
                 }
               >
                 <Ionicons name="pencil-outline" size={16} color="#9b8fff" />
@@ -591,7 +633,7 @@ export default function MedicineDetailScreen({ route, navigation }) {
                       style={[styles.medicineName, { fontSize: fs(18, 20) }]}
                       numberOfLines={1}
                     >
-                      {medicine.name}
+                      {currentMedicine.name}
                     </Text>
                     <View
                       style={[
@@ -614,11 +656,14 @@ export default function MedicineDetailScreen({ route, navigation }) {
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>EXPIRY</Text>
                     <Text style={styles.infoValue}>
-                      {new Date(medicine.expiry).toLocaleDateString("en-IN", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                      {new Date(currentMedicine.expiry).toLocaleDateString(
+                        "en-IN",
+                        {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        },
+                      )}
                     </Text>
                   </View>
 
@@ -633,12 +678,12 @@ export default function MedicineDetailScreen({ route, navigation }) {
                             { color: stockStatus.color },
                           ]}
                         >
-                          {medicine.quantity} · {stockStatus.label}
+                          {currentMedicine.quantity} · {stockStatus.label}
                         </Text>
                       </View>
                     ) : (
                       <Text style={styles.infoValue}>
-                        {medicine.quantity} units
+                        {currentMedicine.quantity} units
                       </Text>
                     )}
                   </View>
@@ -1284,7 +1329,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#9b8fff80",
   },
-  weekDotTaken: { backgroundColor: "#2ea86e" }, 
+  weekDotTaken: { backgroundColor: "#2ea86e" },
   weekDayLabel: { fontSize: 10, color: "#555568", fontWeight: "600" },
 
   // Reminders — marginHorizontal applied inline from layout

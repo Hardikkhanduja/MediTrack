@@ -132,26 +132,40 @@ export default function EditMedicineScreen({ navigation, route }) {
     pressAnimation(saveBtnScale, 0.97).start();
     setLoading(true);
 
-    const ownerName =
-      selectedMember === "SELF"
-        ? "Self"
-        : members.find((m) => m.id === selectedMember)?.relationship || "Self";
+    try {
+      const ownerName =
+        selectedOwner === "SELF"
+          ? "Self"
+          : members.find((m) => m.id === selectedOwner)?.relationship || "Self";
 
-    const updatedMedicine = {
-      ...medicine,
-      name,
-      quantity,
-      expiry,
-      ownerId: selectedMember,
-      ownerName,
-    };
+      const updatedMedicine = {
+        ...medicine,
+        name: name.trim(),
+        quantity: parseInt(quantity),
+        expiry: normalizedExpiry,
+        ownerId: selectedOwner,
+        ownerName,
+      };
 
-    await updateMedicine(updatedMedicine);
-    scheduleMedicineAlerts(updatedMedicine).catch(console.log);
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-    setLoading(false);
-    navigation.goBack();
+
+      await updateMedicine(updatedMedicine);
+
+      await scheduleMedicineAlerts(updatedMedicine);
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      navigation.goBack();
+    } catch (error) {
+      console.log("UPDATE ERROR:", error);
+
+      Alert.alert(
+        "Update Failed",
+        "Unable to update medicine. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
