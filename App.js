@@ -17,6 +17,8 @@ import MedicineDetailScreen from "./app/screens/MedicineDetailScreen";
 import NotificationScreen from "./app/screens/NotificationScreen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import FamilyMembersScreen from "./app/screens/FamilyMembersScreen";
+import PrivacyPolicyScreen from "./app/screens/PrivacyPolicyScreen";
+import TermsOfServiceScreen from "./app/screens/TermsOfServiceScreen";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -126,6 +128,18 @@ export default function App() {
             name="Notifications"
             component={NotificationScreen}
             options={{ animation: "slide_from_right" }}
+          />
+
+          <Stack.Screen
+            name="PrivacyPolicy"
+            component={PrivacyPolicyScreen}
+            options={{ headerShown: false }}
+          />
+
+          <Stack.Screen
+            name="TermsOfService"
+            component={TermsOfServiceScreen}
+            options={{ headerShown: false }}
           />
         </Stack.Navigator>
       </NavigationContainer>
