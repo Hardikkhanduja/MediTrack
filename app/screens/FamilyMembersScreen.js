@@ -13,15 +13,34 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AppModal from "../components/AppModal";
 
 const FAMILY_MEMBERS_KEY = "meditrack_family_members";
 
 export default function FamilyMembersScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
+  const [medicines, setMedicines] = useState([]);
   const [members, setMembers] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [name, setName] = useState("");
+
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState(null);
+
+  const [errorModalVisible, setErrorModalVisible] = useState(false);
+
+  const assignedMedicines = medicines.filter(
+    (med) => med.ownerId === memberToDelete,
+  );
+
+  const medicineNames = assignedMedicines
+    .slice(0, 3)
+    .map((m) => m.name)
+    .join(", ");
+
+  const extraCount =
+    assignedMedicines.length > 3 ? assignedMedicines.length - 3 : 0;
 
   const RELATIONSHIPS = [
     "Dad",
@@ -38,6 +57,7 @@ export default function FamilyMembersScreen({ navigation }) {
 
   useEffect(() => {
     loadMembers();
+    loadMedicines();
   }, []);
 
   async function loadMembers() {
@@ -46,6 +66,18 @@ export default function FamilyMembersScreen({ navigation }) {
 
       if (stored) {
         setMembers(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  async function loadMedicines() {
+    try {
+      const stored = await AsyncStorage.getItem("medicines");
+
+      if (stored) {
+        setMedicines(JSON.parse(stored));
       }
     } catch (error) {
       console.log(error);
@@ -66,10 +98,7 @@ export default function FamilyMembersScreen({ navigation }) {
 
   async function addMember() {
     if (!name.trim() || !relationship.trim()) {
-      Alert.alert(
-        "Missing Information",
-        "Please enter both name and relationship.",
-      );
+      setErrorModalVisible(true);
       return;
     }
 
@@ -90,27 +119,35 @@ export default function FamilyMembersScreen({ navigation }) {
   }
 
   function deleteMember(memberId) {
-    Alert.alert(
-      "Delete Member",
-      "Are you sure you want to remove this family member?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            const updatedMembers = members.filter(
-              (item) => item.id !== memberId,
-            );
+    setMemberToDelete(memberId);
+    setDeleteModalVisible(true);
+  }
 
-            await saveMembers(updatedMembers);
-          },
-        },
-      ],
-    );
+  async function confirmDeleteMember() {
+    if (!memberToDelete) return;
+
+    const updatedMembers = members.filter((item) => item.id !== memberToDelete);
+
+    const updatedMedicines = medicines.map((medicine) => {
+      if (medicine.ownerId === memberToDelete) {
+        return {
+          ...medicine,
+          ownerId: "SELF",
+          ownerName: "Self",
+        };
+      }
+
+      return medicine;
+    });
+
+    await AsyncStorage.setItem("medicines", JSON.stringify(updatedMedicines));
+
+    setMedicines(updatedMedicines);
+
+    await saveMembers(updatedMembers);
+
+    setDeleteModalVisible(false);
+    setMemberToDelete(null);
   }
 
   return (
@@ -232,7 +269,7 @@ export default function FamilyMembersScreen({ navigation }) {
                       relationship === item &&
                         styles.relationshipChipTextActive,
                     ]}
-                >
+                  >
                     {item}
                   </Text>
                 </TouchableOpacity>
@@ -254,6 +291,40 @@ export default function FamilyMembersScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+
+      <AppModal
+        visible={deleteModalVisible}
+        type="warning"
+        title="Remove Family Member?"
+        message={
+          assignedMedicines.length === 0
+            ? "This family member has no assigned medicines."
+            : `${assignedMedicines.length} medicine${
+                assignedMedicines.length > 1 ? "s are" : " is"
+              } currently assigned to this member and will be automatically reassigned to Self.`
+        }
+        primaryText="Remove"
+        secondaryText="Cancel"
+        onPrimary={confirmDeleteMember}
+        onSecondary={() => {
+          setDeleteModalVisible(false);
+          setMemberToDelete(null);
+        }}
+        onClose={() => {
+          setDeleteModalVisible(false);
+          setMemberToDelete(null);
+        }}
+      />
+
+      <AppModal
+        visible={errorModalVisible}
+        type="error"
+        title="Missing Information"
+        message="Please enter both a name and relationship before adding a family member."
+        primaryText="OK"
+        onPrimary={() => setErrorModalVisible(false)}
+        onClose={() => setErrorModalVisible(false)}
+      />
     </View>
   );
 }

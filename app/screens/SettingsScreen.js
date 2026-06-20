@@ -71,11 +71,11 @@ export default function SettingsScreen({ navigation }) {
   }
 
   function handleTerms() {
-    Alert.alert("Terms of Service", "Terms of Service will be available soon.");
+    navigation.navigate("TermsOfService");
   }
 
   function handlePrivacy() {
-    Alert.alert("Privacy Policy", "Privacy Policy will be available soon.");
+    navigation.navigate("PrivacyPolicy");
   }
 
   function handleThemeToggle(value) {
@@ -202,7 +202,6 @@ export default function SettingsScreen({ navigation }) {
           </View>
         </View>
 
-
         {/* ── FAMILY CABINET ── */}
         <Text style={styles.sectionLabel}>FAMILY CABINET</Text>
         <View style={styles.card}>
@@ -229,7 +228,6 @@ export default function SettingsScreen({ navigation }) {
             <Ionicons name="chevron-forward" size={18} color="#555568" />
           </TouchableOpacity>
         </View>
-
 
         {/* ── LEGAL & INFORMATION ── */}
         <Text style={styles.sectionLabel}>LEGAL & INFORMATION</Text>
