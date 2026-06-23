@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
 
 const KEY = "medicines";
 
@@ -11,6 +12,31 @@ export async function getMedicines() {
     return [];
   }
 }
+
+export async function cancelMedicineReminders(medicineId) {
+  try {
+    const stored = await AsyncStorage.getItem(
+      `reminders_${medicineId}`
+    );
+
+    if (!stored) return;
+
+    const reminders = JSON.parse(stored);
+
+    for (const reminder of reminders) {
+      try {
+        await Notifications.cancelScheduledNotificationAsync(
+          reminder.id
+        );
+      } catch (e) {}
+    }
+
+    await AsyncStorage.removeItem(`reminders_${medicineId}`);
+  } catch (e) {
+    console.log("Error cancelling reminders", e);
+  }
+}
+
 // Update one medicine by id
 export async function updateMedicine(updatedMedicine) {
   try {

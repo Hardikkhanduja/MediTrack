@@ -20,6 +20,9 @@ import FamilyMembersScreen from "./app/screens/FamilyMembersScreen";
 import PrivacyPolicyScreen from "./app/screens/PrivacyPolicyScreen";
 import TermsOfServiceScreen from "./app/screens/TermsOfServiceScreen";
 
+import React, { useEffect, useRef } from "react";
+import { createNavigationContainerRef } from "@react-navigation/native";
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -27,6 +30,8 @@ Notifications.setNotificationHandler({
     shouldSetBadge: true,
   }),
 });
+
+export const navigationRef = createNavigationContainerRef();
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -96,9 +101,70 @@ function MainTabs() {
 }
 
 export default function App() {
+  const notificationListener = useRef();
+  useEffect(() => {
+    const handleNotificationNavigation = async (response) => {
+      try {
+        const medicineId =
+          response?.notification?.request?.content?.data?.medicineId;
+
+        if (!medicineId) return;
+
+        const AsyncStorage =
+          require("@react-native-async-storage/async-storage").default;
+
+        const stored = await AsyncStorage.getItem("medicines");
+
+        if (!stored) return;
+
+        const medicines = JSON.parse(stored);
+
+        const medicine = medicines.find((m) => m.id === medicineId);
+
+        if (!medicine) return;
+
+        if (navigationRef.isReady()) {
+          navigationRef.navigate("MedicineDetail", {
+            medicine,
+          });
+        }
+      } catch (e) {
+        console.log("Notification navigation error:", e);
+      }
+    };
+
+    Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (response) {
+          setTimeout(() => {
+            handleNotificationNavigation(response);
+          }, 1500);
+        }
+      })
+      .catch((e) => {
+        console.log("Initial notification error:", e);
+      });
+
+    notificationListener.current =
+      Notifications.addNotificationResponseReceivedListener(
+        async (response) => {
+          handleNotificationNavigation(response);
+        },
+      );
+
+    return () => {
+      if (notificationListener.current) {
+        Notifications.removeNotificationSubscription(
+          notificationListener.current,
+        );
+      }
+    };
+  }, []);
+
+  
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Splash" component={SplashScreen} />
           <Stack.Screen name="Onboarding" component={OnboardingScreen} />

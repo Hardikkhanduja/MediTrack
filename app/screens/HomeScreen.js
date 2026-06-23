@@ -13,7 +13,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState, useCallback, useRef } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getMedicines, deleteMedicine } from "../data/storage";
 import { cancelMedicineAlerts } from "../data/notifications";
 import * as Haptics from "expo-haptics";
 import PillLogo from "../components/PillLogo";
@@ -27,6 +26,12 @@ import {
 } from "../motion";
 import { useLayout } from "../layout";
 import { getStockStatus } from "../stock";
+
+import {
+  deleteMedicine,
+  getMedicines,
+  cancelMedicineReminders,
+} from "../data/storage";
 
 function getStatus(expiryDate) {
   const today = new Date();
@@ -397,13 +402,22 @@ export default function HomeScreen({ navigation }) {
 
   async function confirmDelete() {
     if (!medicineToDelete) return;
+
     setDeleteModal(false);
+
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
     await cancelMedicineAlerts(medicineToDelete.id);
+
+    await cancelMedicineReminders(medicineToDelete.id);
+
     await deleteMedicine(medicineToDelete.id);
+
     configureLayoutTransition();
+
     const updated = await getMedicines();
     setMedicines(updated);
+
     setMedicineToDelete(null);
   }
 

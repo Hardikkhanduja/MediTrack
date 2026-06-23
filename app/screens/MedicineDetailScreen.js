@@ -161,7 +161,7 @@ export default function MedicineDetailScreen({ route, navigation }) {
 
       const updated = medicines.find((m) => m.id === medicine.id);
 
-      if (updated) { 
+      if (updated) {
         setCurrentMedicine(updated);
       }
     } catch (e) {
@@ -334,7 +334,12 @@ export default function MedicineDetailScreen({ route, navigation }) {
       const stored = await AsyncStorage.getItem(
         `reminders_${currentMedicine.id}`,
       );
-      if (stored) setReminders(JSON.parse(stored));
+
+      if (stored) {
+        setReminders(JSON.parse(stored));
+      } else {
+        setReminders([]);
+      }
     } catch (e) {
       console.log("Error loading reminders", e);
     }
@@ -392,9 +397,12 @@ export default function MedicineDetailScreen({ route, navigation }) {
       const updated = reminders.map((r) =>
         r.id === editingId ? { ...r, hour: hours, minute: minutes, label } : r,
       );
+
       await saveReminders(updated);
+
       try {
         await Notifications.cancelScheduledNotificationAsync(editingId);
+
         await Notifications.scheduleNotificationAsync({
           identifier: editingId,
           content: {
@@ -405,6 +413,7 @@ export default function MedicineDetailScreen({ route, navigation }) {
               medicineId: currentMedicine.id,
               medicineName: currentMedicine.name,
               ownerName: ownerLabel,
+              type: "reminder",
             },
           },
           trigger: {
@@ -433,6 +442,7 @@ export default function MedicineDetailScreen({ route, navigation }) {
               medicineId: currentMedicine.id,
               medicineName: currentMedicine.name,
               ownerName: ownerLabel,
+              type: "reminder",
             },
           },
           trigger: {

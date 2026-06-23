@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   saveBtnDisabled: { opacity: 0.6 },
-  saveBtnText: {
+    saveBtnText: {
     color: "#ffffff",
     fontSize: 14,
     fontWeight: "800",
