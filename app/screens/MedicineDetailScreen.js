@@ -58,7 +58,7 @@ function formatTime(date) {
   });
 }
 
-export default function MedicineDetailScreen({ route, navigation }) {
+export default function MedicineDetailScreen({ route, navigation }) { 
   const layout = useLayout();
   const { contentPadding, maxContentWidth, useDetailSideBySide, fs } = layout;
 
@@ -77,7 +77,7 @@ export default function MedicineDetailScreen({ route, navigation }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(10)).current;
   // Taken pill opacity cross-fade
-  const takenOpacity = useRef(new Animated.Value(0)).current;
+  const takenOpacity = useRef(new Animated.Value(0.65)).current;
 
   const [modalConfig, setModalConfig] = useState({
     visible: false,
@@ -203,8 +203,6 @@ export default function MedicineDetailScreen({ route, navigation }) {
         await loadReminders();
         await loadTakenStatus();
         await loadWeekHistory();
-
-        takenOpacity.setValue(0);
       }
 
       refreshScreen();
@@ -400,6 +398,9 @@ export default function MedicineDetailScreen({ route, navigation }) {
 
       await saveReminders(updated);
 
+      await loadTakenStatus();
+      await loadWeekHistory();
+
       try {
         await Notifications.cancelScheduledNotificationAsync(editingId);
 
@@ -431,6 +432,10 @@ export default function MedicineDetailScreen({ route, navigation }) {
       const newReminder = { id, hour: hours, minute: minutes, label };
       const updated = [...reminders, newReminder];
       await saveReminders(updated);
+
+      await loadTakenStatus();
+      await loadWeekHistory();
+
       try {
         await Notifications.scheduleNotificationAsync({
           identifier: id,

@@ -1,22 +1,22 @@
-import { View, Text, StyleSheet} from "react-native";
-import { useEffect} from "react";
+import { View, Text, StyleSheet } from "react-native";
+import { useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import PillLogo from "../components/PillLogo";
 
 export default function SplashScreen({ navigation }) {
-
-
   useEffect(() => {
-     async function navigate() {
+    async function navigate() {
       try {
         await new Promise((res) => setTimeout(res, 1500));
         const hasOnboarded = await AsyncStorage.getItem("hasOnboarded");
         if (hasOnboarded) {
+          console.log("SPLASH -> MAIN");
           navigation.replace("Main");
         } else {
           navigation.replace("Onboarding");
         }
       } catch (e) {
+        console.log("SPLASH -> ONBOARDING");
         navigation.replace("Onboarding");
       }
     }
@@ -29,7 +29,6 @@ export default function SplashScreen({ navigation }) {
       <View style={styles.center}>
         {/* Pill icon with glow */}
         <View style={styles.glowOuter}>
-
           <View style={styles.glowInner}>
             <View style={styles.iconWrapper}>
               <PillLogo

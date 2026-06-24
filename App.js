@@ -107,6 +107,7 @@ export default function App() {
       try {
         const medicineId =
           response?.notification?.request?.content?.data?.medicineId;
+ 
 
         if (!medicineId) return;
 
@@ -124,6 +125,8 @@ export default function App() {
         if (!medicine) return;
 
         if (navigationRef.isReady()) {
+         
+
           navigationRef.navigate("MedicineDetail", {
             medicine,
           });
@@ -138,7 +141,7 @@ export default function App() {
         if (response) {
           setTimeout(() => {
             handleNotificationNavigation(response);
-          }, 1500);
+          }, 2500);
         }
       })
       .catch((e) => {
@@ -161,7 +164,6 @@ export default function App() {
     };
   }, []);
 
-  
   return (
     <SafeAreaProvider>
       <NavigationContainer ref={navigationRef}>
