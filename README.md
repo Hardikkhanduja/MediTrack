@@ -1,86 +1,309 @@
 <div align="center">
-  <h1>MediTrack 💊</h1>
-  <p>A smart, AI-powered medicine cabinet tracker built with React Native and Expo.</p>
+
+# 💊 MediTrack
+
+### AI-Powered Family Medicine Reminder & Expiry Tracker
+
+Never miss a dose. Never forget an expiry date.
+
+MediTrack helps individuals and families organize medicines, receive daily medication reminders, track expiry dates, and instantly scan medicine strips using AI-powered vision technology.
+
+Built with React Native, Expo, and Google Gemini 2.5 Flash Vision.
+
+![Platform](https://img.shields.io/badge/Platform-Android-success)
+![React Native](https://img.shields.io/badge/React%20Native-React%20Native-blue)
+![Expo](https://img.shields.io/badge/Expo-SDK%2054-black)
+![AI Powered](https://img.shields.io/badge/AI-Gemini%202.5%20Flash-orange)
+![License](https://img.shields.io/badge/License-MIT-green)
+
 </div>
 
-<br/>
+---
 
-## ✨ Features
+## Overview
 
-- **AI-Powered Vision Scanning:** Skip the typing. Snap a picture of your medicine's blister pack, and Google's flagship **Gemini 2.5 Flash Vision API** instantly parses the drug name, exact expiry date, and remaining pill quantity directly from the medicine strip or packaging.
-- **Intelligent Reminders:** Highly reliable, locally-scheduled background notifications ensure you never miss a daily dose. Automated timeline alerts warn you exactly when your stash is about to expire.
-- **Minimalist Noir Aesthetic:** A sleek, fully customized monochrome deep-dark interface built to feel like high-end tier-1 tech. Features pristine high-contrast layouts, custom `Inter` typography, scalable `@expo/vector-icons`, haptic engine feedback, and fluid layout animations that smoothly slide lists as items are modified.
-- **Privacy First Storage:** No remote medical databases. All of your medicine tracking data is securely bound locally on-device.
+Most households store medicines for multiple family members, making it difficult to:
 
-## 📸 Screenshots
+- Track who takes which medicine
+- Remember daily doses
+- Monitor expiry dates
+- Keep medicine cabinets organized
+- Avoid using expired medications
 
-
-| Home Screen | Medicine Details | Scanning AI |
-|:---:|:---:|:---:|
-| <img src="screenshots/home.png" width="250"> | <img src="screenshots/details.png" width="250"> | <img src="screenshots/scan.png" width="250"> |
-
-## 📱 How to Use
-
-1. **Adding a Medicine:** 
-   - Tap the **`+ Add Medicine`** button on the Home Screen.
-   - Tap **`Scan`** to open your camera. Frame the reflective blister pack wrapper so the text is visible.
-   - The AI will automatically fill in the medicine name, true expiry date, and the number of pills remaining!
-2. **Managing Your Cabinet:** 
-   - Your Home Screen will sort your medicines by their Expiry Status (Safe, Expiring Soon, or Expired).
-   - Use the Search Bar to instantly filter through your medical cabinet.
-3. **Setting Daily Reminders:**
-   - Tap on any active medicine card to open the **Medicine Details** tab.
-   - Under *Daily Reminders*, tap **`+ Add`** to open the time picker.
-   - Select a time, and the app will natively schedule a repeating daily push notification to remind you to take that specific drug!
-
-## 🚀 Tech Stack
-
-- **Framework:** React Native / Expo
-- **AI Brain:** Google Gemini 2.5 Flash (via REST)
-- **Local Persistence:** `@react-native-async-storage`
-- **Background Processes:** `expo-notifications` (Custom Android `HIGH` Importance Channels)
-- **Styling Pipeline:** Vanilla StyleSheet, `@expo/vector-icons` (Ionicons/FontAwesome5), `@expo-google-fonts`
-
-## 📦 Setup & Installation
-
-To run this project locally, you will need Node.js and the Expo CLI installed.
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/Hardikkhanduja/MediTrack
-   cd MediTrack
-   ```
-
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-3. **Configure Environment Variables:**
-   Create a `.env` file in the root directory and securely add your Gemini API key. *(Note: This file is strictly excluded from version control for your safety).*
-   ```env
-   EXPO_PUBLIC_GEMINI_API_KEY=your_google_gemini_key_here
-   ```
-
-4. **Launch Application Dev Server:**
-   ```bash
-   npx expo start -c
-   ```
-
-## 🏗️ Production Builds (Android .APK)
-
-Because `.env` files are correctly blocked by Git, this project uses Expo Application Services (EAS) secured cloud secrets to inject the API key strictly during the compile process.
-
-1. Upload your API key into your Expo project's secure and encrypted locker:
-   ```bash
-   eas secret:create --scope project --name EXPO_PUBLIC_GEMINI_API_KEY --value your_api_key_here --type string
-   ```
-2. Trigger the cloud builder to generate a standalone Android build:
-   ```bash
-   eas build -p android --profile preview
-   ```
+MediTrack simplifies medicine management through AI-powered medicine scanning, daily reminders, expiry tracking, and family medicine organization—all in a clean, privacy-focused mobile experience.
 
 ---
+
+## Features
+
+### AI-Powered Medicine Scanner
+
+Skip manual entry.
+
+Simply scan a medicine strip or package, and Google Gemini Vision automatically extracts:
+
+- Medicine Name
+- Expiry Date
+- Quantity Remaining
+
+This makes adding medicines fast, accurate, and effortless.
+
+---
+
+### Family Medicine Management
+
+Organize medicines for different family members from a single application.
+
+Keep medicines, reminders, and expiry tracking structured and easy to manage for the entire household.
+
+---
+
+### Daily Medication Reminders
+
+Create personalized reminder schedules for each medicine.
+
+Receive reliable local notifications even when the application is closed, helping ensure medications are taken on time.
+
+---
+
+### Expiry Date Tracking
+
+Stay ahead of medicine expiries with automated alerts:
+
+- 30 Days Before Expiry
+- 7 Days Before Expiry
+- 1 Day Before Expiry
+
+Never accidentally use expired medication again.
+
+---
+
+### Medication Progress Tracking
+
+Track medicine consumption using an intuitive weekly progress view.
+
+Quickly see whether scheduled doses were taken and maintain consistency in daily medication routines.
+
+---
+
+### Smart Search & Organization
+
+Instantly search medicines and organize them by status:
+
+- Safe
+- Expiring Soon
+- Expired
+
+Find medicines quickly and maintain a well-organized medicine cabinet.
+
+---
+
+### Privacy-First Design
+
+Your data remains on your device.
+
+- No account required
+- No cloud database
+- No unnecessary data collection
+
+Your medicine information stays private.
+
+---
+
+## Screenshots
+
+### Home Screen | AI Scanner | AI Autofill
+
+| Home                                           | AI Scanner                                     | AI Autofill                                |
+| ---------------------------------------------- | ---------------------------------------------- | ------------------------------------------------- |
+| <img src="screenshots/home.jpeg" width="250"/> | <img src="screenshots/scan.jpeg" width="250"/> | <img src="screenshots/autofill.jpeg" width="250"/> |
+
+### Details | Notifications | Settings
+
+| Details                                         | Notifications                                           | Settings                               |
+| -------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------- |
+| <img src="screenshots/details.jpeg" width="250"/> | <img src="screenshots/notifications.jpeg" width="250"/> | <img src="screenshots/settings.jpeg" width="250"/> |
+
+---
+
+## How It Works
+
+### 1. Add a Medicine
+
+Choose one of two methods:
+
+- Manual Entry
+- AI Scan
+
+---
+
+### 2. Scan Using AI
+
+Capture a clear image of the medicine strip or packaging.
+
+Gemini Vision automatically identifies and extracts medicine details.
+
+---
+
+### 3. Assign to a Family Member
+
+Store medicines under the correct family member to keep records organized and easy to manage.
+
+---
+
+### 4. Set Daily Reminders
+
+Add one or multiple reminder times.
+
+MediTrack schedules local notifications to help ensure medications are taken on time.
+
+---
+
+### 5. Monitor Expiry Dates
+
+The application continuously tracks expiry dates and sends alerts before medicines expire.
+
+---
+
+## Tech Stack
+
+### Mobile Development
+
+- React Native
+- Expo
+
+### Artificial Intelligence
+
+- Google Gemini 2.5 Flash Vision API
+
+### Local Storage
+
+- @react-native-async-storage/async-storage
+
+### Notifications
+
+- Expo Notifications
+
+### UI & Design
+
+- React Native StyleSheet
+- Expo Vector Icons
+- Google Fonts (Inter)
+
+---
+
+## Installation
+
+### Clone the Repository
+
+```bash
+git clone https://github.com/Hardikkhanduja/MediTrack.git
+
+cd MediTrack
+```
+
+### Install Dependencies
+
+```bash
+npm install
+```
+
+### Configure Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+EXPO_PUBLIC_GEMINI_API_KEY=YOUR_API_KEY
+```
+
+### Start the Development Server
+
+```bash
+npx expo start
+```
+
+---
+
+## Android Build
+
+### Configure EAS Secret
+
+```bash
+eas secret:create \
+--scope project \
+--name EXPO_PUBLIC_GEMINI_API_KEY \
+--value YOUR_API_KEY \
+--type string
+```
+
+### Generate Android Build
+
+```bash
+eas build -p android
+```
+
+---
+
+## Project Structure
+
+```text
+MediTrack
+├── assets/
+├── components/
+├── screens/
+├── services/
+├── utils/
+├── storage/
+├── App.js
+├── app.json
+└── package.json
+```
+
+---
+
+## Roadmap
+
+Planned improvements:
+
+- Low Stock Alerts
+- Medicine Refill Tracking
+- Light Theme Support
+- Data Backup & Restore
+- Improved AI Recognition Accuracy
+- Enhanced Family Management Features
+- Medication History Analytics
+
+---
+
+## Why MediTrack?
+
+MediTrack combines intelligent medicine scanning, family medicine organization, reminder scheduling, and expiry tracking into a single mobile application.
+
+Instead of managing medicines manually, users can maintain an organized digital medicine cabinet and receive timely reminders while keeping their data private and stored locally.
+
+---
+
+
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for details.
+
+---
+
+
+## Developer
+
+**Hardik Khanduja**  
+Computer Science Engineering Student  
+Full Stack Developer • AI Enthusiast • Mobile App Developer  
+
+GitHub: https://github.com/Hardikkhanduja
+---
+
 <div align="center">
-  <i>Developed for seamless health tracking.</i>
+
+If you find this project useful, consider giving it a ⭐ on GitHub.
+
+Built to help individuals and families manage medicines with confidence.
+
 </div>
